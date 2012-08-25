@@ -123,7 +123,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.closed = False
         self.lastMessage = time.time()
         self.keys = set()
-        self.pos = euclid.Vector3(random.uniform(-1,1),random.uniform(-1,1),random.uniform(-1,1))
+        self.pos = euclid.Vector3(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5))
         self.rot = euclid.Quaternion()
         self.speed = 0
         self.game.add_client(self)
