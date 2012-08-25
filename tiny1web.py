@@ -66,7 +66,7 @@ class Game:
         stale = time.time() - 3 # 3 secs
         for client in self.clients.copy():
             if client.lastMessage < stale:
-                print "timing out",client.name,client.lastMessage-message-time.time()
+                print "timing out",client.name,client.lastMessage-time.time()
                 client.close()
 
 class LD24WebSocket(tornado.websocket.WebSocketHandler):
