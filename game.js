@@ -7,13 +7,21 @@ var std_msg = {
 	no_players: 4,
 };
 
-var grid, grid_program, grid_tex, grid_data;
+var grid, grid_program, grid_tex, grid_data, player_models = [];
+
+function player_model() { return player_models[Math.floor(Math.random()*player_models.length)]; }
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
+	ws.last_message = now();
 	if(data.cmd)
 		game.players[data.cmd.player].queue.push(data.cmd);
-	else if(data.welcome) {
+	else if(data.pong) {
+		if(ws.ping_value != data.pong)
+			ws.error("bad ping; expected "+ws.ping_value+", got "+data.pong);
+		else
+			ws.ping_value = 0;
+	} else if(data.welcome) {
 		game.welcomed = true;
 		game.player = data.welcome.name;
 		game.tick_length = data.welcome.tick_length;
@@ -23,7 +31,7 @@ function gameHandler(evt) {
 		var other_players = "";
 		for(var player in data.welcome.players) {
 			player = data.welcome.players[player];
-			game.players[player.name] = { name:player.name, queue:[], };
+			game.players[player.name] = { name:player.name, queue:[], model:player_model(), };
 			if(player.name == game.player) continue;
 			if(other_players.length) other_players += ", ";
 			other_players += player.name;
@@ -36,7 +44,7 @@ function gameHandler(evt) {
 		removeMessage(std_msg.no_players);
 		if(!(data.joining in game.players)) {
 			game.num_players++;
-			game.players[data.joining] = { name:data.joining, queue:[], };
+			game.players[data.joining] = { name:data.joining, queue:[], model:player_model(), };
 			addMessage(3,null,data.joining+" joins the game");
 		}
 	} else if(data.leaving) {
@@ -49,7 +57,8 @@ function gameHandler(evt) {
 			removeMessage(std_msg.no_players);
 			addMessage(null,null,"There are no other players left!  Get a friend to play NOW!",std_msg.no_players);
 		}
-	}
+	} else
+		console.log("ERROR unhandled message",data);
 }
 
 function addMessage(secs,from,text,tag) {
@@ -89,22 +98,36 @@ function start() {
 	ws = new WebSocket(ws_path);
 	ws.onopen = function() {
 		console.log("websocket",ws_path,"open");
+		ws.pinger = setInterval(ws.ping,1000);
 	};
 	ws.onclose = function() {
 		console.log("websocket",ws_path,"closed");
 		game = null;
+		if(ws.pinger) clearInterval(ws.pinger);
 	};
-	ws.onerror = function(e) {
+	ws.error = function(e) {
 		console.log("websocket",ws_path,"encountered an error:",e);
 		game = null;
 		ws.close();
 	};
+	ws.onerror = ws.error;
 	ws.onmessage = function(evt) {
 		try {
 			gameHandler(evt);
 		} catch(e) {
 			console.log("WebSocket ERROR",e);
-			ws.onerror(e);
+			ws.error(e);
+		}
+	};
+	ws.ping_value = 0;
+	ws.ping = function() {
+		if(ws.ping_value) {
+			ws.error("ping failed");
+			return;
+		}
+		if(ws.last_message < now()-1000) {
+			ws.ping_value = Math.floor(Math.random()*100000+1);
+			ws.send(JSON.stringify({"ping":ws.ping_value}));
 		}
 	};
 }
@@ -123,7 +146,8 @@ function inited() {
 		},
 		players:[],
 	};
-	g3d_player = new G3D("fighter2.g3d");
+	for(var i=1; i<=3; i++)
+		player_models.push(new G3D("fighter"+i+".g3d"));
 	loadFile("image","grid.png",function(handle) {
 		grid_tex = handle;
 		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
@@ -136,7 +160,13 @@ function inited() {
 }
 
 function render() {
-	if(g3d_player && grid) splash.dismiss(start);
+	if(!ws && !splash.dismissed) {
+		var loaded = grid;
+		for(var model in player_models)
+			if(!player_models[model].ready)
+				loaded = false;
+		if(loaded) splash.dismiss(start);
+	}
 	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 	if(!game) return;
 	if(game.welcomed) {
@@ -146,10 +176,8 @@ function render() {
 			player = game.players[player];
 			while(player.queue.length && player.queue[0].time <= time) {
 				cmd = player.queue.shift();
-				console.log("executing",player.name,cmd,time);
+				//...
 			}
-			if(player.queue.length)
-				console.log("paused at",player.name,player.queue);
 		}
 	}
 	// draw it
@@ -183,7 +211,8 @@ function render() {
 	mvMatrix = mat4_multiply(mvMatrix,
 		quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
 	mvMatrix = mat4_multiply(mvMatrix,mat4_scale(0.02));
-	g3d_player.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
+	if(game.welcomed)
+		game.players[game.player].model.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
 }
 
 function initGrid(sz) {
@@ -303,7 +332,7 @@ function onKeyDown(evt,keys) {
 		if(keys[38]) {
 			key = 38; down = !down; feedback = -feedback;
 		}
-		game.attitude.roll = down? -feedback: 0;
+		game.attitude.roll = down? feedback: 0;
 	}
 	if(send) {
 		ws.send(JSON.stringify({

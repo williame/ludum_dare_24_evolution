@@ -105,25 +105,35 @@ function loop() {
 	}
 }
 
-var _loading = [], _loading_wait = null;
+var _loading = [], _loading_wait = null, _loaded = [];
 
 function loadFile(type,path,callback) {
 	console.log("loading",type,path,"...");
+	if(path in _loaded) {
+		setTimeout(function() { callback(_loaded[path]); },0);
+		return;
+	}
+	if(path in _loading) {
+		_loading[path].push(callback);
+		return;
+	}
+	_loading[path] = [callback];
 	if(_loading_wait) clearTimeout(_loading_wait);
 	_loading_wait = setTimeout(function() {
 		alert("it's taking a long time to load all the files!  Maybe something is wrong?");
 		console.log("awaiting load of:",_loading);
 		},3000);
 	var done = function(arg) {
-		console.log("loaded",type,path,_loading);
-		_loading.splice(_loading.indexOf(path),1);
+		console.log("loaded",type,path);
+		_loaded[path] = arg;
+		callbacks = _loading[path];
+		delete _loading[path];
 		if(!_loading.length) clearTimeout(_loading_wait);
-		if(callback)
-			callback(arg);
-		callback = null;
+		for(callback in callbacks)
+			if(callbacks[callback])
+				callbacks[callback](arg);
 	};
 	if(type == "javascript") {
-		_loading.push(path);
 		var script = document.createElement('script');
 		script.setAttribute("type","text/javascript");
 		script.setAttribute("src",path);

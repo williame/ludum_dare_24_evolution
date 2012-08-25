@@ -13,12 +13,14 @@ class Game:
     TICKS_PER_SECOND = 4
     def __init__(self):
         self.clients = set()
+        self.ticker = tornado.ioloop.PeriodicCallback(self.tick,1000/(self.TICKS_PER_SECOND*2))
     def now(self):
         return time.time()-self.start_time
     def add_client(self,client):
         if not self.clients:
             self.seq = 1
             self.start_time = time.time()
+            self.ticker.start()
         client.name = "player%d"%self.seq
         self.seq += 1
         message = '{"joining":"%s"}'%client.name
@@ -36,14 +38,16 @@ class Game:
                 } for client in self.clients],
             },
         }
-        print message
         client.write_message(json.dumps(message))
     def remove_client(self,client):
         if client in self.clients:
             self.clients.remove(client)
             message = '{"leaving":"%s"}'%client.name
-            for competitor in self.clients:
-                competitor.write_message(message)
+            if not self.clients:
+                self.ticker.stop() 
+            else:
+                for competitor in self.clients:
+                    competitor.write_message(message)                
     def send_cmd(self,cmd):
         cmd["time"] = math.floor(self.now()*self.TICKS_PER_SECOND)/self.TICKS_PER_SECOND*1000
         cmd = json.dumps({"cmd":cmd})
@@ -57,6 +61,12 @@ class Game:
         messages = json.dumps({"chat":messages})
         for recipient in self.clients:
             recipient.write_message(messages)
+    def tick(self):
+        stale = time.time() - 3 # 3 secs
+        for client in self.clients.copy():
+            if client.lastMessage < stale:
+                print "timing out",client.name
+                client.close()
 
 class LD24WebSocket(tornado.websocket.WebSocketHandler):
     game = Game() # everyone in the same game for now
@@ -67,6 +77,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.closed = False
         self.game.add_client(self)
         print self.name,"joined;",len(self.game.clients),"players"
+        self.lastMessage = time.time()
     def on_message(self,message):
         self.lastMessage = time.time()
         try:
