@@ -8,17 +8,28 @@ body { border:0px;margin:0px;padding:0px; }
 <script type="text/javascript">
 
 var UI_inited = false;
-var gl, canvas, ws, game;
+var gl, canvas, ws, game, messages;
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
 	if(data.welcome) {
 		game.player = data.welcome.name;
-		console.log("hello",game.player);
+		addMessage(3,null,"hello "+game.player);
 	}
 }
 
+function addMessage(secs,from,text) {
+	var 	f = UILabel(from? from: "system"),
+		message = UIPanel([f,UILabel(text)],true);
+	message.bgColour = [0.2,0.2,0.2,1];
+	f.fgColour = from==game.name?[0.8,0.8,1,1]: !from? [1,0.8,0.8,1]: [0.8,1,0.8,1];
+	messages.tree.addChild(message);
+	setTimeout(function() { message.destroy(); },secs*1000);
+}
+
 function inited() {
+	messages = UIWindow(false,UIPanel([],false,UILayoutRows));
+	messages.show();
 	game = {};
 	var ws_path = "ws://"+window.location.href.split("/")[2]+"/ws-ld24";
 	ws = new WebSocket(ws_path);
@@ -38,6 +49,7 @@ function inited() {
 		try {
 			gameHandler(evt);
 		} catch(e) {
+			console.log(e);
 			ws.onerror(e);
 		}
 	};

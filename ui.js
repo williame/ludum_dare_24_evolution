@@ -254,6 +254,7 @@ function UIWindow(modal,tree) {
 		return new UIWindow(modal,tree);
 	this.modal = modal;
 	this.tree = tree;
+	this.children = [tree];
 	this.ctx = new UIContext();
 	this.mvp = null;
 	this.isDirty = true;
@@ -336,83 +337,97 @@ var UIDefaults = {
 function UIComponent() {
 	if(this == window)
 		return new UIComponent();
-	this.x1 = this.x2 = 0;
-	this.y1 = this.y2 = 0;
-	this.pos = function() {
-		return [this.x1,this.y1];
+	var ctrl = this;
+	ctrl.x1 = ctrl.x2 = 0;
+	ctrl.y1 = ctrl.y2 = 0;
+	ctrl.pos = function() {
+		return [ctrl.x1,ctrl.y1];
 	}
-	this.setPos = function(pos) {
-		var x = pos[0]-this.x1, y = pos[1]-this.y1;
+	ctrl.setPos = function(pos) {
+		var x = pos[0]-ctrl.x1, y = pos[1]-ctrl.y1;
 		if(!x && !y) return;
-		for(var child in this.children) {
-			child = this.children[child];
+		for(var child in ctrl.children) {
+			child = ctrl.children[child];
 			child.setPos([child.x1+x,child.y1+y]);
 		}
-		this.x1 += x; this.y1 += y;
-		this.x2 += x; this.y2 += y;
-		this.dirty();
+		ctrl.x1 += x; ctrl.y1 += y;
+		ctrl.x2 += x; ctrl.y2 += y;
+		ctrl.dirty();
 	}
-	this.setSize = function(size) {
-		if(size == this.size()) return;
-		this.x2 = this.x1 + size[0];
-		this.y2 = this.y1 + size[1];
-		this.dirty();
+	ctrl.setSize = function(size) {
+		if(size == ctrl.size()) return;
+		ctrl.x2 = ctrl.x1 + size[0];
+		ctrl.y2 = ctrl.y1 + size[1];
+		ctrl.dirty();
 	}
-	this.width = function() {
-		return this.x2 - this.x1;
+	ctrl.width = function() {
+		return ctrl.x2 - ctrl.x1;
 	}
-	this.height = function() {
-		return this.y2 - this.y1;
+	ctrl.height = function() {
+		return ctrl.y2 - ctrl.y1;
 	}
-	this.size = function() {
-		return [this.width(),this.height()];
+	ctrl.size = function() {
+		return [ctrl.width(),ctrl.height()];
 	}
-	this.preferredSize = function() {
-		return this.size(); 
+	ctrl.preferredSize = function() {
+		return ctrl.size(); 
 	}
-	this.font = null;
-	this.getFont = function() {
-		return this.font || this.parent.getFont();
+	ctrl.font = null;
+	ctrl.getFont = function() {
+		return ctrl.font || ctrl.parent.getFont();
 	}
-	this.fgColour = null;
-	this.getFgColour = function() {
-		return this.fgColour || this.parent.getFgColour();
+	ctrl.fgColour = null;
+	ctrl.getFgColour = function() {
+		return ctrl.fgColour || ctrl.parent.getFgColour();
 	}
-	this.bgColour = null;
-	this.getBgColour = function() {
-		return this.bgColour || this.parent.getBgColour();
+	ctrl.bgColour = null;
+	ctrl.getBgColour = function() {
+		return ctrl.bgColour || ctrl.parent.getBgColour();
 	}
-	this.layout = function() {
-		for(var child in this.children)
-			this.children[child].layout();
-		this.setSize(this.preferredSize());
+	ctrl.layout = function() {
+		for(var child in ctrl.children)
+			ctrl.children[child].layout();
+		ctrl.setSize(ctrl.preferredSize());
 	}
-	this.draw = function(ctx) {}
-	this.isDirty = true;
-	this.dirty = function() {
-		if(this.isDirty) return;
-		this.isDirty = true;
-		this.parent.dirty();
+	ctrl.draw = function(ctx) {}
+	ctrl.isDirty = true;
+	ctrl.dirty = function() {
+		if(ctrl.isDirty) return;
+		ctrl.isDirty = true;
+		ctrl.parent.dirty();
 	}
-	this.children = [];
-	this.parent = null;
-	this.setParent = function(parent) {
-		this.parent = parent;
-		this.isDirty = true;
-		for(var child in this.children)
-			this.children[child].setParent(this);
+	ctrl.children = [];
+	ctrl.parent = null;
+	ctrl.setParent = function(parent) {
+		ctrl.parent = parent;
+		ctrl.isDirty = true;
+		for(var child in ctrl.children)
+			ctrl.children[child].setParent(ctrl);
 	}
-	this.window = function() { return this.parent.window(); }
-	this.onClick = function(evt) {
-		if(evt.clientX<this.x1 || evt.clientX>=this.x2 ||
-			evt.clientY<this.y1 || evt.clientY>=this.y2)
+	ctrl.addChild = function(child) {
+		ctrl.children.push(child);
+		child.setParent(ctrl);
+		ctrl.window().layout();
+	}
+	ctrl.destroy = function() {
+		if(!ctrl.parent) return;
+		var idx = ctrl.parent.children.indexOf(ctrl);
+		if(idx != -1) {
+			ctrl.parent.children.splice(idx,1);
+			ctrl.parent.window().layout();
+		}
+	}
+	ctrl.window = function() { return ctrl.parent.window(); }
+	ctrl.onClick = function(evt) {
+		if(evt.clientX<ctrl.x1 || evt.clientX>=ctrl.x2 ||
+			evt.clientY<ctrl.y1 || evt.clientY>=ctrl.y2)
 			return false;
-		for(var child in this.children)
-			if(this.children[child].onClick(evt))
+		for(var child in ctrl.children)
+			if(ctrl.children[child].onClick(evt))
 				return true;
 		return false;
 	}
-	return this;
+	return ctrl;
 }
 
 function UILabel(text) {
