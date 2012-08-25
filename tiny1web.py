@@ -99,7 +99,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
                 assert message["key"]["type"] in ("keydown","keyup")
                 assert isinstance(message["key"]["value"],int)
                 assert message["key"]["value"] in (37,38,39,40)
-                if message["key"]["type"] == keydown:
+                if message["key"]["type"] == "keydown":
                     assert message["key"]["value"] not in self.keys
                     self.keys.add(message["key"]["value"])
                 else:
