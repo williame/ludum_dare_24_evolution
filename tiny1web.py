@@ -35,6 +35,7 @@ class Game:
                 "time_now":self.now()*1000,
                 "players":[{
                     "name":client.name,
+                    "keys":list(client.keys),
                 } for client in self.clients],
             },
         }
@@ -65,7 +66,7 @@ class Game:
         stale = time.time() - 3 # 3 secs
         for client in self.clients.copy():
             if client.lastMessage < stale:
-                print "timing out",client.name
+                print "timing out",client.name,client.last-message-time.time()
                 client.close()
 
 class LD24WebSocket(tornado.websocket.WebSocketHandler):
@@ -75,9 +76,10 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
     	    return False
     def open(self):
         self.closed = False
+        self.lastMessage = time.time()
+        self.keys = set()
         self.game.add_client(self)
         print self.name,"joined;",len(self.game.clients),"players"
-        self.lastMessage = time.time()
     def on_message(self,message):
         self.lastMessage = time.time()
         try:
@@ -97,6 +99,11 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
                 assert message["key"]["type"] in ("keydown","keyup")
                 assert isinstance(message["key"]["value"],int)
                 assert message["key"]["value"] in (37,38,39,40)
+                if message["key"]["type"] == keydown:
+                    assert message["key"]["value"] not in self.keys
+                    self.keys.add(message["key"]["value"])
+                else:
+                    self.keys.remove(message["key"]["value"])
                 self.game.send_cmd({
                         "player":self.name,
                         "type":message["key"]["type"],
