@@ -84,7 +84,7 @@ function load_font(name,path,callback) {
 		texture = arg;
 		done();
 	});
-	loadFile("xml",path+".fnt",function(arg) {
+	loadFile("xml",path+".xml",function(arg) {
 		xml = arg;
 		done();
 	});
