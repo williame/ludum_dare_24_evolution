@@ -1,8 +1,10 @@
 var ws, game, messages;
 
 var std_msg = {
-	hello: 1,
-	no_players: 2,
+	loading: 1,
+	connecting: 2,
+	hello: 3,
+	no_players: 4,
 };
 
 var grid, grid_program, grid_tex, grid_data;
@@ -14,17 +16,17 @@ function gameHandler(evt) {
 	else if(data.welcome) {
 		game.welcomed = true;
 		game.player = data.welcome.name;
-		game.num_players = 1;
-		game.players[game.player] = { name:game.player, queue:[], };
 		game.tick_length = data.welcome.tick_length;
 		game.start_time = now()-data.welcome.time_now;
+		removeMessage(std_msg.connecting);
 		addMessage(null,null,"hello "+game.player,std_msg.hello);
 		var other_players = "";
-		for(var competitor in data.welcome.other_players) {
-			competitor = data.welcome.other_players[competitor];
-			game.players[competitor] = { name:competitor, queue:[], };
+		for(var player in data.welcome.players) {
+			player = data.welcome.players[player];
+			game.players[player.name] = { name:player.name, queue:[], };
+			if(player.name == game.player) continue;
 			if(other_players.length) other_players += ", ";
-			other_players += competitor;
+			other_players += player.name;
 		}
 		if(other_players.length)
 			addMessage(5,null,"playing against: "+other_players);
@@ -76,7 +78,14 @@ function removeMessage(tag) {
 }
 
 function start() {
-	var ws_path = "ws://"+window.location.href.split("/")[2]+"/ws-ld24";
+	removeMessage(std_msg.loading);
+	addMessage(null,null,"connecting...",std_msg.connecting);
+	var ws_path = window.location.href;
+	if(ws_path.indexOf("localhost") != -1) // if running locally, connect locally
+		ws_path = ws_path.split("/")[2]
+	else
+		ws_path = "31.192.226.244:4874"; // my private server; if you fork, you have to change this
+	ws_path = "ws://"+ws_path+"/ws-ld24";
 	ws = new WebSocket(ws_path);
 	ws.onopen = function() {
 		console.log("websocket",ws_path,"open");
@@ -102,6 +111,7 @@ function start() {
 
 function inited() {
 	messages = UIWindow(false,UIPanel([],false,UILayoutRows));
+	addMessage(null,null,"loading... please wait",std_msg.loading);
 	messages.show();
 	game = {
 		welcomed:false,
@@ -267,22 +277,39 @@ function onMouseUp(evt,keys) {}
 
 function onKeyDown(evt,keys) {
 	if(!ws || ws.readyState != 1) return;
-	var send = false, feedback = Math.PI*Math.PI, down = evt.type=="keydown";
-	switch(evt.which) {
-	case 37: // left
-		game.attitude.yaw = down? -feedback: 0; break; 
-	case 38: // up
-		game.attitude.roll = down? -feedback: 0; break;
-	case 39: // right
-		game.attitude.yaw = down? feedback: 0; break;
-	case 40: // down
-		game.attitude.roll = down? feedback: 0; break;
-	};
+	var send = false, feedback = Math.PI*Math.PI,
+		key = evt.which, down = evt.type=="keydown";
+	// if you are holding left and press right, they cancel out...
+	if(key==37) { // left
+		send = true;
+		if(keys[39]) {
+			key = 39; down = !down; feedback = -feedback;
+		}
+		game.attitude.yaw = down? -feedback: 0;
+	} else if(key == 39) { // right
+		send = true;
+		if(keys[37]) {
+			key = 37; down = !down; feedback = -feedback;
+		}
+		game.attitude.yaw = down? feedback: 0;
+	} else if(key == 38) { // up
+		send = true;
+		if(keys[40]) {
+			key = 40; down = !down; feedback = -feedback;
+		}
+		game.attitude.roll = down? -feedback: 0;
+	} else if(key == 40) { // down
+		send = true;
+		if(keys[38]) {
+			key = 38; down = !down; feedback = -feedback;
+		}
+		game.attitude.roll = down? -feedback: 0;
+	}
 	if(send) {
 		ws.send(JSON.stringify({
 			key:{
-				type:evt.type,
-				value:evt.which,
+				type:down?"keydown":"keyup",
+				value:key,
 			},
 		}));
 	}

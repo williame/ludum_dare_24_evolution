@@ -24,17 +24,19 @@ class Game:
         message = '{"joining":"%s"}'%client.name
         for competitor in self.clients:
             competitor.write_message(message)
+        self.clients.add(client)
         message = {
             "welcome":{
                 "name":client.name,
                 "tick_length":1000/self.TICKS_PER_SECOND,
                 "start_time":self.start_time*1000,
                 "time_now":self.now()*1000,
-                "other_players":[competitor.name for competitor in self.clients],
+                "players":[{
+                    "name":client.name,
+                } for client in self.clients],
             },
         }
         client.write_message(json.dumps(message))
-        self.clients.add(client)
     def remove_client(self,client):
         if client in self.clients:
             self.clients.remove(client)
