@@ -34,9 +34,9 @@ class Game:
                 "start_time":self.start_time*1000,
                 "time_now":self.now()*1000,
                 "players":[{
-                    "name":client.name,
-                    "keys":list(client.keys),
-                } for client in self.clients],
+                    "name":c.name,
+                    "keys":list(c.keys),
+                } for c in self.clients],
             },
         }
         client.write_message(json.dumps(message))
