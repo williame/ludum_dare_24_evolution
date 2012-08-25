@@ -74,7 +74,31 @@ class G3D:
             raise Exception("not an mtMorphMesh")
         for i in range(mesh_count):
             self.meshes.append(self.Mesh(self,f))
-            
+        
+        
+    def centre(self):
+        self.min = [sys.float_info.max,sys.float_info.max,sys.float_info.max]
+        self.max = [sys.float_info.min,sys.float_info.min,sys.float_info.min]
+        for mesh in self.meshes:
+            for frame in mesh.frames:
+                for v in range(mesh.vertex_count):
+                    for i in range(3):
+                        self.min[i] = min(self.min[i],frame.vertices[v*3+i])
+                        self.max[i] = max(self.max[i],frame.vertices[v*3+i])
+        centre = [(a+b)/2 for a,b in zip(self.min,self.max)]
+        print "bounds",self.min,self.max,centre
+        self.min = [sys.float_info.max,sys.float_info.max,sys.float_info.max]
+        self.max = [sys.float_info.min,sys.float_info.min,sys.float_info.min]
+        for mesh in self.meshes:
+            for frame in mesh.frames:
+                for v in range(mesh.vertex_count):
+                    for i in range(3):
+                        frame.vertices[v*3+i] -= centre[i]
+                        self.min[i] = min(self.min[i],frame.vertices[v*3+i])
+                        self.max[i] = max(self.max[i],frame.vertices[v*3+i])
+        centre = [(a+b)/2 for a,b in zip(self.min,self.max)]
+        print "bounds",self.min,self.max,centre
+        
     def __repr__(self):
         return self.name
             
@@ -132,6 +156,7 @@ if __name__=="__main__":
     src = sys.argv[1]
     g3d = G3D(src,file(src,"r").read())
     g3d.desc()
+    g3d.centre()
     g3d.auto_join_frames()
     g3d.desc()
     dest = sys.argv[2]

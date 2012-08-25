@@ -3,19 +3,29 @@ var ws, game, messages;
 var std_msg = {
 	loading: 1,
 	connecting: 2,
-	hello: 3,
-	no_players: 4,
+	disconnected: 3,
+	hello: 4,
+	no_players: 5,
 };
 
 var grid, grid_program, grid_tex, grid_data, player_models = [];
 
-function player_model() { return player_models[Math.floor(Math.random()*player_models.length)]; }
+function player_model() { return player_models[1]; } //Math.floor(Math.random()*player_models.length)]; }
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
 	ws.last_message = now();
 	if(data.cmd)
 		game.players[data.cmd.player].queue.push(data.cmd);
+	else if(data.updates) {
+		for(var update in data.updates) {
+			update = data.updates[update];
+			var player = game.players[update.name];
+			player.pos = update.pos;
+			player.rot = update.rot;
+			player.speed = update.speed;
+		}
+	}
 	else if(data.pong) {
 		if(ws.ping_value != data.pong)
 			ws.error("bad ping; expected "+ws.ping_value+", got "+data.pong);
@@ -34,14 +44,23 @@ function gameHandler(evt) {
 			player = data.welcome.players[player];
 			game.players[player.name] = {
 				name:player.name,
-				keys:[],
 				queue:[],
+				time:player.time,
+				pos:player.pos,
+				rot:player.rot,
+				speed:player.speed,
 				model:player_model(), };
 			for(var key in player.keys)
 				game.players[player.name].keys[key] = true;
-			if(player.name == game.player) continue;
-			if(other_players.length) other_players += ", ";
-			other_players += player.name;
+			if(player.name == game.player) {
+				game.time = player.time;
+				game.pos = player.pos;
+				game.rot = player.rot;
+				game.speed = player.speed;
+			} else {
+				if(other_players.length) other_players += ", ";
+				other_players += player.name;
+			}
 		}
 		if(other_players.length)
 			addMessage(5,null,"playing against: "+other_players);
@@ -51,9 +70,13 @@ function gameHandler(evt) {
 		removeMessage(std_msg.no_players);
 		if(!(data.joining in game.players)) {
 			game.num_players++;
-			game.players[data.joining] = { 
-				name:data.joining,
+			game.players[data.joining.name] = { 
+				name:data.joining.name,
 				queue:[],
+				time:data.joining.time,
+				pos:data.joining.pos,
+				rot:data.joining.rot,
+				speed:data.joining.speed,
 				model:player_model(), };
 			addMessage(3,null,data.joining+" joins the game");
 		}
@@ -113,8 +136,10 @@ function start() {
 	ws.onclose = function() {
 		console.log("websocket",ws_path,"closed");
 		if(ws.pinger) clearInterval(ws.pinger);
+		removeMessage(std_msg.hello);
+		removeMessage(std_msg.no_players);
+		addMessage(null,null,"disconnected!",std_msg.disconnected);
 		game = null;
-		ws = null;
 	};
 	ws.error = function(e) {
 		console.log("websocket",ws_path,"encountered an error:",e);
@@ -147,15 +172,14 @@ function inited() {
 	messages.show();
 	game = {
 		welcomed:false,
-		pos:[0,0,0],
-		attitude:{
+		attitude:{ // this is for user feedback, not actually used to compute heading
 			roll:0,
 			pitch:0,
 			yaw:0,
 		},
 		players:[],
 	};
-	for(var i=1; i<=3; i++)
+	for(var i=1; i<=5; i++)
 		player_models.push(new G3D("fighter"+i+".g3d"));
 	loadFile("image","grid.png",function(handle) {
 		grid_tex = handle;
@@ -179,26 +203,20 @@ function render() {
 	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 	if(!game) return;
 	if(game.welcomed) {
-		// execute all outstanding commands
 		var time = (Math.floor((now() - game.start_time) / game.tick_length) * game.tick_length);
-		while(game.tick <= time) {
-			for(var player in game.players) {
-				player = game.players[player];
-				while(player.queue.length && player.queue[0].time <= game.tick) {
-					cmd = player.queue.shift();
-					//...
-					console.log("executing",player.name,cmd,game.tick-cmd.time);
-				}
-				if(player.queue.length)
-					console.log("queued",player.name,player.queue[0].time-game.tick);
-			}
-			game.tick += game.tick_length;
-		}
+		var player = game.players[game.player];
+		game.pos = player.pos;
+		game.rot = player.rot;
+		game.speed = player.speed;
 	}
 	// draw it
 	var	pMatrix = createPerspective(90.0,canvas.width/canvas.height,0.1,2),
-		mvMatrix= mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]),
-		nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
+		mvMatrix= mat4_identity();
+	if(game.welcomed)
+		mvMatrix= mat4_multiply(quat_to_mat4(game.rot),
+			mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]));
+	mvMatrix = mat4_multiply(mat4_translation(0,-0.2,-0.2),mvMatrix);
+	var nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
 	if(grid) {
 		gl.enable(gl.CULL_FACE);
 		gl.frontFace(gl.CW);
@@ -222,11 +240,9 @@ function render() {
 		gl.bindBuffer(gl.ARRAY_BUFFER,null);
 		gl.useProgram(null);
 	}
-	mvMatrix = mat4_multiply(mvMatrix,mat4_translation(0,-0.1,-0.15));
-	mvMatrix = mat4_multiply(mvMatrix,
-		quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
-	mvMatrix = mat4_multiply(mvMatrix,mat4_scale(0.02));
-	if(game && game.welcomed)
+	mvMatrix = mat4_multiply(quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)),mvMatrix);
+	mvMatrix = mat4_multiply(mat4_scale(0.02),mvMatrix);
+	if(game.welcomed)
 		game.players[game.player].model.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
 }
 

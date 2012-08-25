@@ -1,5 +1,5 @@
 gl.activeTexture(gl.TEXTURE0);
-gl.clearColor(1,1,1,1);
+gl.clearColor(0,0,0,1);
 gl.enable(gl.DEPTH_TEST);
 gl.depthFunc(gl.LEQUAL);
 gl.enable(gl.BLEND);
@@ -222,6 +222,32 @@ function mat4_transpose(f) {
 		f[3], f[7], f[11], f[15]];
 }
 
+function mat4_vec3_multiply(m,v) {
+	return [v[0] * m[0] + v[1] * m[4] + v[2] * m[8] + m[12],
+		v[0] * m[1] + v[1] * m[5] + v[2] * m[9] + m[13],
+		v[0] * m[2] + v[1] * m[6] + v[2] * m[10] + m[14]];
+}
+
+function quat_multiply(a,b) {
+	return [
+		a[3]*b[0]+a[0]*b[3]+a[1]*b[2]-a[2]*b[1],
+		a[3]*b[1]+a[1]*b[3]+a[2]*b[0]-a[0]*b[2],
+		a[3]*b[2]+a[2]*b[3]+a[0]*b[1]-a[1]*b[0],
+		a[3]*b[3]-a[0]*b[0]-a[1]*b[1]-a[2]*b[2]];
+}
+
+function vec3_normalise(v) {
+	var mag = Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+	return [v[0]/mag, v[1]/mag, v[2]/mag];
+}
+
+function quat_vec3_multiply(q,v) {
+	var	vn = vec3_normalise(v),
+		vq = [vn[0],vn[1],v[2],0],
+		rq = quat_multiply(q,quat_multiply(vq,[-q[0],-q[1],-q[2],q[3]]));
+	return [rq[0],rq[1],rq[2]];
+}
+
 var	PI_OVER_180 = Math.PI/180,
 	HALF_PI_OVER_180 = PI_OVER_180/2,
 	EPSILON = 0.0001;
@@ -277,6 +303,19 @@ function quat_to_mat4(q) {
 		2*(xy+zw), 1-2*(xx+zz), 2*(yz-xw), 0,
 		2*(xz-yw), 2*(yz+xw), 1-2*(xx+yy), 0,
 		0, 0, 0, 1];
+}
+
+function quat_inverse(q) {
+	return [-q[0],-q[1],-q[3],q[4]]
+}
+quat_conjugate = quat_inverse
+
+function quat_forward(q) {
+	return quat_vec3_multiply(quat_inverse(q),(0,0,-1));	
+}
+
+function quat_up(q) {
+	return quat_vec3_multiply(quat_inverse(q),(0,-1,0));	
 }
 
 function quat_normalise(q) {

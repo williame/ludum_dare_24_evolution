@@ -1,29 +1,47 @@
-import os, subprocess, base64, json, traceback, time, math
+import os, subprocess, base64, json, traceback, time, math, random
 import tornado.ioloop
 import tornado.websocket
 import tornado.web
 from tornado.options import define, options, parse_command_line
+import euclid
 
 define("port",default=8888,type=int)
 define("branch",default="master")
 define("access",type=str,multiple=True)
 define("local",type=bool)
 
+rot_speed = .02
+rot_left = euclid.Quaternion().rotate_euler(0.,-rot_speed,0.)
+rot_down = euclid.Quaternion().rotate_euler(0.,0.,-rot_speed)
+rot_right = euclid.Quaternion().rotate_euler(0.,rot_speed,0.)
+rot_up = euclid.Quaternion().rotate_euler(0.,0.,rot_speed)
+
 class Game:
     TICKS_PER_SECOND = 4
     def __init__(self):
         self.clients = set()
-        self.ticker = tornado.ioloop.PeriodicCallback(self.tick,1000/(self.TICKS_PER_SECOND*2))
+        self.tick_length = 1./self.TICKS_PER_SECOND
+        self.ticker = tornado.ioloop.PeriodicCallback(self.run,1000/(self.TICKS_PER_SECOND*2))
     def now(self):
         return time.time()-self.start_time
     def add_client(self,client):
         if not self.clients:
             self.seq = 1
             self.start_time = time.time()
+            self.tick = 0
             self.ticker.start()
         client.name = "player%d"%self.seq
+        client.time = self.tick
         self.seq += 1
-        message = '{"joining":"%s"}'%client.name
+        message = json.dumps({
+            "joining":{
+                "name":client.name,
+                "time":client.time,
+                "pos":(client.pos.x,client.pos.y,client.pos.z),
+                "rot":(client.rot.x,client.rot.y,client.rot.z,client.rot.w),
+                "speed":client.speed,
+            },
+        })
         for competitor in self.clients:
             competitor.write_message(message)
         self.clients.add(client)
@@ -35,7 +53,10 @@ class Game:
                 "time_now":self.now()*1000,
                 "players":[{
                     "name":c.name,
-                    "keys":list(c.keys),
+                    "time":c.time,
+                    "pos":(c.pos.x,c.pos.y,c.pos.z),
+                    "rot":(c.rot.x,c.rot.y,c.rot.z,c.rot.w),
+                    "speed":c.speed,
                 } for c in self.clients],
             },
         }
@@ -62,12 +83,36 @@ class Game:
         messages = json.dumps({"chat":messages})
         for recipient in self.clients:
             recipient.write_message(messages)
-    def tick(self):
+    def run(self):
+        # time out old clients
         stale = time.time() - 3 # 3 secs
         for client in self.clients.copy():
             if client.lastMessage < stale:
                 print "timing out",client.name,client.lastMessage-time.time()
                 client.close()
+        # move simulation onwards?
+        while self.tick+self.tick_length <= self.now():
+            updates = []
+            for client in self.clients:
+                q = euclid.Quaternion()
+                if 37 in client.keys: q *= rot_left
+                if 38 in client.keys: q *= rot_up
+                if 39 in client.keys: q *= rot_right
+                if 40 in client.keys: q *= rot_down
+                client.rot *= q
+                client.rot.normalize()
+                updates.append({
+                    "name":client.name,
+                    "pos":(client.pos.x,client.pos.y,client.pos.z),
+                    "rot":(client.rot.x,client.rot.y,client.rot.z,client.rot.w),
+                    "speed":client.speed,
+                })
+            for client in self.clients:
+                client.write_message(json.dumps({
+                        "tick":self.tick,
+                        "updates":updates,
+                }))
+            self.tick += self.tick_length
 
 class LD24WebSocket(tornado.websocket.WebSocketHandler):
     game = Game() # everyone in the same game for now
@@ -78,6 +123,9 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.closed = False
         self.lastMessage = time.time()
         self.keys = set()
+        self.pos = euclid.Vector3(random.uniform(-1,1),random.uniform(-1,1),random.uniform(-1,1))
+        self.rot = euclid.Quaternion()
+        self.speed = 0
         self.game.add_client(self)
         print self.name,"joined;",len(self.game.clients),"players"
     def on_message(self,message):
@@ -104,11 +152,6 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
                     self.keys.add(message["key"]["value"])
                 else:
                     self.keys.remove(message["key"]["value"])
-                self.game.send_cmd({
-                        "player":self.name,
-                        "type":message["key"]["type"],
-                        "value":message["key"]["value"],
-                })
         except:
             print "ERROR processing",message
             traceback.print_exc()
