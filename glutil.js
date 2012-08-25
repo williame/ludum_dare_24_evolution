@@ -68,7 +68,7 @@ function createTexture(width,height,data) {
 	gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
 	gl.generateMipmap(gl.TEXTURE_2D);
 	gl.bindTexture(gl.TEXTURE_2D,null);
 	tex.width = width;
@@ -135,6 +135,27 @@ function createLookAt(eye,centre,up) {
         	x1, y1, z1, 0,
         	x2, y2, z2, 0,
         	-(x0*eye[0] + x1*eye[1] + x2*eye[2]), -(y0*eye[0] + y1*eye[1] + y2*eye[2]), -(z0*eye[0] + z1*eye[1] + z2*eye[2]), 1];
+}
+
+function mat4_translation(x,y,z) {
+	return [1,0,0,0,
+		0,1,0,0,
+		0,0,1,0,
+		x,y,z,1];
+}
+
+function mat4_scale(factor) {
+	return [factor,0,0,0,
+		0,factor,0,0,
+		0,0,factor,0,
+		0,0,0,1];
+}
+
+function mat4_identity() {
+	return [1,0,0,0,
+		0,1,0,0,
+		0,0,1,0,
+		0,0,0,1];
 }
 
 function mat4_multiply(a,b) {
