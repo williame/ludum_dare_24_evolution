@@ -111,8 +111,9 @@ function start() {
 	};
 	ws.onclose = function() {
 		console.log("websocket",ws_path,"closed");
-		game = null;
 		if(ws.pinger) clearInterval(ws.pinger);
+		game = null;
+		ws = null;
 	};
 	ws.error = function(e) {
 		console.log("websocket",ws_path,"encountered an error:",e);
@@ -220,7 +221,7 @@ function render() {
 	mvMatrix = mat4_multiply(mvMatrix,
 		quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
 	mvMatrix = mat4_multiply(mvMatrix,mat4_scale(0.02));
-	if(game.welcomed)
+	if(game && game.welcomed)
 		game.players[game.player].model.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
 }
 
