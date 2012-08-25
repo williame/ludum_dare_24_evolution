@@ -31,7 +31,13 @@ function gameHandler(evt) {
 		var other_players = "";
 		for(var player in data.welcome.players) {
 			player = data.welcome.players[player];
-			game.players[player.name] = { name:player.name, queue:[], model:player_model(), };
+			game.players[player.name] = {
+				name:player.name,
+				keys:[],
+				queue:[],
+				model:player_model(), };
+			for(var key in player.keys)
+				game.players[player.name].keys[key] = true;
 			if(player.name == game.player) continue;
 			if(other_players.length) other_players += ", ";
 			other_players += player.name;
@@ -44,7 +50,10 @@ function gameHandler(evt) {
 		removeMessage(std_msg.no_players);
 		if(!(data.joining in game.players)) {
 			game.num_players++;
-			game.players[data.joining] = { name:data.joining, queue:[], model:player_model(), };
+			game.players[data.joining] = { 
+				name:data.joining,
+				queue:[],
+				model:player_model(), };
 			addMessage(3,null,data.joining+" joins the game");
 		}
 	} else if(data.leaving) {
