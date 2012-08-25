@@ -10,11 +10,37 @@ body { border:0px;margin:0px;padding:0px; }
 var UI_inited = false;
 var gl, canvas, ws, game, messages;
 
+var grid, grid_program, grid_tex;
+
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
 	if(data.welcome) {
 		game.player = data.welcome.name;
 		addMessage(3,null,"hello "+game.player);
+		var other_players = "";
+		for(var competitor in data.welcome.other_players) {
+			competitor = data.welcome.other_players[competitor];
+			if(other_players.length) other_players += ", ";
+			other_players += competitor;
+		}
+		if(other_players.length)
+			other_players = "playing against: "+other_players;
+		else
+			other_players = "There are no other players!  Get a friend to play NOW!";
+		addMessage(5,null,other_players);
+	}
+	if(data.joining) {
+		if(!(data.joining in game.competitors)) {
+			game.competitors.push(data.joining);
+			addMessage(3,null,data.joining+" joins the game");
+		}
+	}
+	if(data.leaving) {
+		var idx = game.competitors.indexOf(data.leaving);
+		if(-1 != idx) {
+			addMessage(3,null,data.leaving+" leaves the game");
+			game.competitors.splice(idx,1);
+		}
 	}
 }
 
@@ -30,7 +56,9 @@ function addMessage(secs,from,text) {
 function inited() {
 	messages = UIWindow(false,UIPanel([],false,UILayoutRows));
 	messages.show();
-	game = {};
+	game = {
+		competitors:[],
+	};
 	var ws_path = "ws://"+window.location.href.split("/")[2]+"/ws-ld24";
 	ws = new WebSocket(ws_path);
 	ws.onopen = function() {
@@ -53,13 +81,15 @@ function inited() {
 			ws.onerror(e);
 		}
 	};
-/*	var win = UIWindow(true,UIPanel([
-		UIPanel([UILabel("this is a test"),
-			UILabel("this too"),
-			UIButton("click me!",function(evt) { win.hide(); }),],true),
-			UIPanel([UILabel("this is a test"),UILabel("this too")]),
-	],false,UILayoutRows));
-	win.show();*/
+	loadFile("image","grid.png",function(handle) {
+		grid_tex = handle;
+		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
+		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
+		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+		gl.bindTexture(gl.TEXTURE_2D,null);
+		grid = gl.createBuffer();
+		initGrid(64,64,64);
+	});
 }
 
 function render() {
@@ -68,7 +98,85 @@ function render() {
 		pMatrix = createPerspective(60.0,canvas.offsetWidth/canvas.offsetHeight,0.1,zoom*2),
 		mvMatrix = createLookAt([zoom,zoom*0.8,zoom],[0,0,0],[0,1,0]),
 		nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
+	if(grid) {
+		gl.useProgram(grid_program);
+		gl.uniformMatrix4fv(grid_program.pMatrix,false,pMatrix);
+		gl.uniformMatrix4fv(grid_program.mvMatrix,false,mvMatrix);
+		gl.uniformMatrix4fv(grid_program.nMatrix,false,nMatrix);
+		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
+		gl.uniform1i(grid_program.texture,0);
+		gl.bindBuffer(gl.ARRAY_BUFFER,grid);
+		gl.enableVertexAttribArray(grid_program.vertex);
+		gl.vertexAttribPointer(grid_program.vertex,3,gl.FLOAT,false,4*(3+3+2),0);
+		gl.enableVertexAttribArray(grid_program.normal);
+		gl.vertexAttribPointer(grid_program.normal,3,gl.FLOAT,false,4*(3+3+2),3*4);
+		gl.enableVertexAttribArray(grid_program.texCoord);
+		gl.vertexAttribPointer(grid_program.texCoord,2,gl.FLOAT,false,4*(3+3+2),(3+3)*4);
+		gl.drawArrays(gl.TRIANGLES,0,2*6);
+		gl.disableVertexAttribArray(grid_program.texCoord);
+		gl.disableVertexAttribArray(grid_program.normal);
+		gl.disableVertexAttribArray(grid_program.vertex);
+		gl.bindBuffer(gl.ARRAY_BUFFER,null);
+		gl.useProgram(null);
+	}
 	//g3d_test.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
+}
+
+function initGrid(w,h,d) {
+	gl.bindBuffer(gl.ARRAY_BUFFER,grid);
+	var 	data = new Float32Array(2*6*(3+3+2)),
+		i = 0,
+		addQuad = function(a,b,n,x,y) {
+			var pts = [
+				a[0],a[1],a[2],n[0],n[1],n[2],0,0,
+				a[0],b[1],a[2],n[0],n[1],n[2],0,y,
+				b[0],a[1],b[2],n[0],n[1],n[2],x,0,
+				a[0],b[1],a[2],n[0],n[1],n[2],0,y,
+				b[0],b[1],b[2],n[0],n[1],n[2],x,y,
+				b[0],a[1],b[2],n[0],n[1],n[2],x,0,
+			];
+			for(var pt in pts) data[i++] = pts[pt]; 
+		};
+	addQuad([-1,-1,-1],[-1,1,1],[-1,0,0],d,h);
+	addQuad([1,-1,-1],[1,1,1],[1,0,0],d,h);
+	gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);
+	if(!grid_program) {
+		grid_program = createProgram(
+			"precision mediump float;\n"+
+			"varying vec3 lighting;\n"+
+			"varying vec2 texel;\n"+
+			"attribute vec3 vertex;\n"+
+			"attribute vec3 normal;\n"+
+			"attribute vec2 texCoord;\n"+
+			"uniform float lerp;\n"+
+			"uniform mat4 mvMatrix, pMatrix, nMatrix;\n"+
+			"void main() {\n"+
+			"	texel = vec2(texCoord.x,texCoord.y);\n"+
+			"	gl_Position = pMatrix * mvMatrix * vec4(vertex,1.0);\n"+
+			"	vec3 ambientLight = vec3(0.6,0.6,0.6);\n"+
+			"	vec3 lightColour = vec3(0.8,0.9,0.75);\n"+
+			"	vec3 lightDir = vec3(0.85,0.8,0.75);\n"+
+			"	vec3 transformed = normalize(nMatrix * vec4(normal,1.0)).xyz;\n"+
+			"	float directional = clamp(dot(transformed,lightDir),0.0,1.0);\n"+
+			"	lighting = ambientLight + (lightColour*directional);\n"+
+			"}\n",
+			"precision mediump float;\n"+
+			"varying vec3 lighting;\n"+
+			"varying vec2 texel;\n"+
+			"uniform sampler2D texture;\n"+
+			"uniform vec4 teamColour;\n"+
+			"void main() {\n"+
+			"	vec4 tex = texture2D(texture,texel);\n"+
+			"	gl_FragColor = vec4(tex.rgb*lighting,tex.a);\n"+
+			"}\n");
+		grid_program.vertex = gl.getAttribLocation(grid_program,"vertex");
+		grid_program.normal = gl.getAttribLocation(grid_program,"normal");
+		grid_program.texCoord = gl.getAttribLocation(grid_program,"texCoord");
+		grid_program.mvMatrix = gl.getUniformLocation(grid_program,"mvMatrix");
+		grid_program.pMatrix = gl.getUniformLocation(grid_program,"pMatrix");
+		grid_program.nMatrix = gl.getUniformLocation(grid_program,"nMatrix");
+		grid_program.texture = gl.getUniformLocation(grid_program,"texture");
+	}
 }
 
 function init() {

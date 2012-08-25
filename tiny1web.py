@@ -13,15 +13,21 @@ define("local",type=bool)
 class Game:
     def __init__(self):
         self.clients = set()
-        self.seq = 1
     def add_client(self,client):
+        if not self.clients: self.seq = 1
         client.name = "player%d"%self.seq
         self.seq += 1
         message = '{"joining":"%s"}'%client.name
         for competitor in self.clients:
             competitor.write_message(message)
+        message = {
+            "welcome":{
+                "name":client.name,
+                "other_players":[competitor.name for competitor in self.clients],
+            },
+        }
+        client.write_message(json.dumps(message))
         self.clients.add(client)
-        client.write_message('{"welcome":{"name":"%s"}}'%client.name)
     def remove_client(self,client):
         if client in self.clients:
             self.clients.remove(client)
