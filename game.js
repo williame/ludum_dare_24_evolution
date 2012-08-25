@@ -13,7 +13,6 @@ function player_model() { return player_models[Math.floor(Math.random()*player_m
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
-	console.log("RECEIVED",data);
 	ws.last_message = now();
 	if(data.cmd)
 		game.players[data.cmd.player].queue.push(data.cmd);
@@ -27,6 +26,7 @@ function gameHandler(evt) {
 		game.player = data.welcome.name;
 		game.tick_length = data.welcome.tick_length;
 		game.start_time = now()-data.welcome.time_now;
+		game.tick = data.welcome.time_now;
 		removeMessage(std_msg.connecting);
 		addMessage(null,null,"hello "+game.player,std_msg.hello);
 		var other_players = "";
@@ -136,10 +136,8 @@ function start() {
 			ws.error("ping failed");
 			return;
 		}
-		if(ws.last_message < now()-1000) {
-			ws.ping_value = Math.floor(Math.random()*100000+1);
-			ws.send(JSON.stringify({"ping":ws.ping_value}));
-		}
+		ws.ping_value = Math.floor(Math.random()*100000+1);
+		ws.send(JSON.stringify({"ping":ws.ping_value}));
 	};
 }
 
@@ -183,12 +181,18 @@ function render() {
 	if(game.welcomed) {
 		// execute all outstanding commands
 		var time = (Math.floor((now() - game.start_time) / game.tick_length) * game.tick_length);
-		for(var player in game.players) {
-			player = game.players[player];
-			while(player.queue.length && player.queue[0].time <= time) {
-				cmd = player.queue.shift();
-				//...
+		while(game.tick <= time) {
+			for(var player in game.players) {
+				player = game.players[player];
+				while(player.queue.length && player.queue[0].time <= game.tick) {
+					cmd = player.queue.shift();
+					//...
+					console.log("executing",player.name,cmd,game.tick-cmd.time);
+				}
+				if(player.queue.length)
+					console.log("queued",player.name,player.queue[0].time-game.tick);
 			}
+			game.tick += game.tick_length;
 		}
 	}
 	// draw it

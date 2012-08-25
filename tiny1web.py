@@ -50,7 +50,7 @@ class Game:
                 for competitor in self.clients:
                     competitor.write_message(message)                
     def send_cmd(self,cmd):
-        cmd["time"] = math.floor(self.now()*self.TICKS_PER_SECOND)/self.TICKS_PER_SECOND*1000
+        cmd["time"] = math.floor(self.now()*self.TICKS_PER_SECOND+1/self.TICKS_PER_SECOND)/self.TICKS_PER_SECOND*1000
         cmd = json.dumps({"cmd":cmd})
         for client in self.clients:
             client.write_message(cmd)
