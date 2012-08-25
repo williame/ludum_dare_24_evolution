@@ -36,6 +36,7 @@ class Game:
                 } for client in self.clients],
             },
         }
+        print message
         client.write_message(json.dumps(message))
     def remove_client(self,client):
         if client in self.clients:
