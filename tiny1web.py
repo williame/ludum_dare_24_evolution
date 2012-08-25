@@ -1,5 +1,4 @@
-import os, subprocess, base64, json, traceback
-from time import time as now
+import os, subprocess, base64, json, traceback, time, math
 import tornado.ioloop
 import tornado.websocket
 import tornado.web
@@ -11,10 +10,15 @@ define("access",type=str,multiple=True)
 define("local",type=bool)
 
 class Game:
+    TICKS_PER_SECOND = 4
     def __init__(self):
         self.clients = set()
+    def now(self):
+        return time.time()-self.start_time
     def add_client(self,client):
-        if not self.clients: self.seq = 1
+        if not self.clients:
+            self.seq = 1
+            self.start_time = time.time()
         client.name = "player%d"%self.seq
         self.seq += 1
         message = '{"joining":"%s"}'%client.name
@@ -23,6 +27,9 @@ class Game:
         message = {
             "welcome":{
                 "name":client.name,
+                "tick_length":1000/self.TICKS_PER_SECOND,
+                "start_time":self.start_time*1000,
+                "time_now":self.now()*1000,
                 "other_players":[competitor.name for competitor in self.clients],
             },
         }
@@ -34,6 +41,11 @@ class Game:
             message = '{"leaving":"%s"}'%client.name
             for competitor in self.clients:
                 competitor.write_message(message)
+    def send_cmd(self,cmd):
+        cmd["time"] = math.floor(self.now()*self.TICKS_PER_SECOND)/self.TICKS_PER_SECOND*1000
+        cmd = json.dumps({"cmd":cmd})
+        for client in self.clients:
+            client.write_message(cmd)
     def chat(self,client,lines):
         messages = []
         for line in lines:
@@ -50,12 +62,13 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
     	    return False
     def open(self):
         self.closed = False
-        self.startTime = now()
         self.game.add_client(self)
     def on_message(self,message):
-        self.lastMessage = now()
+        self.lastMessage = time.time()
         try:
+            print "PROCESSING",self.name,message
             message = json.loads(message)
+            assert isinstance(message,dict)
             if "ping" in message:
                 assert isinstance(message["ping"],int)
                 self.write_message('{"pong":%d}'%message["ping"])
@@ -64,6 +77,17 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
                 for line in message["chat"]:
                     assert isinstance(line,basestring)
                     self.game.chat(self,line)
+            if "key" in message:
+                assert isinstance(message["key"],dict)
+                assert isinstance(message["key"]["type"],basestring)
+                assert message["key"]["type"] in ("keydown","keyup")
+                assert isinstance(message["key"]["value"],int)
+                assert message["key"]["value"] in (37,38,39,40)
+                self.game.send_cmd({
+                        "player":self.name,
+                        "type":message["key"]["type"],
+                        "value":message["key"]["value"],
+                })
         except:
             print "ERROR processing",message
             traceback.print_exc()

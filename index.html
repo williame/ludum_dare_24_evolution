@@ -77,7 +77,6 @@ function init() {
 			}
 			var x = (ctx.width/logo_tex.width)/2;
 			var y = (ctx.height/logo_tex.height)/2;
-			console.log("logo",x,y);
 			ctx.drawRect(logo_tex,[1,1,1,1-t],0,0,ctx.width,ctx.height,-x,-y,1+x,1+y);
 			splash.dirty();
 		};

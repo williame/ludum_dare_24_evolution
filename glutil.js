@@ -221,3 +221,69 @@ function mat4_transpose(f) {
 		f[2], f[6], f[10], f[14],
 		f[3], f[7], f[11], f[15]];
 }
+
+var	PI_OVER_180 = Math.PI/180,
+	HALF_PI_OVER_180 = PI_OVER_180/2,
+	EPSILON = 0.0001;
+
+function quat_from_euler(roll,pitch,yaw) {
+	var	p = pitch * HALF_PI_OVER_180,
+		y = yaw * HALF_PI_OVER_180,
+		r = roll * HALF_PI_OVER_180,
+		sinp = Math.sin(p),
+		siny = Math.sin(y),
+		sinr = Math.sin(r),
+		cosp = Math.cos(p),
+		cosy = Math.cos(y),
+		cosr = Math.cos(r);
+	return quat_normalise([
+		sinr * cosp * cosy - cosr * sinp * siny,
+		cosr * sinp * cosy + sinr * cosp * siny,
+		cosr * cosp * siny - sinr * sinp * cosy,
+		cosr * cosp * cosy + sinr * sinp * siny]);
+}
+
+function quat_slerp(from,to,t) {
+	var scale0 = 1-t, scale1=t, to1 = to;
+	var cosom = from[0] * to[0] + from[1] * to[1] + from[2] * to[2] + from[3] * to[3];
+	if (cosom <0){
+		cosom = -cosom;
+		to1 = [-to[0],-to[1],-to[2],-to[3]];
+	}
+	if((1 - cosom) > EPSILON) {
+		// standard case (slerp)
+		var omega = Math.acos(cosom), sinom = Math.sin(omega);
+		scale0 = Math.sin((1.0 - t) * omega) / sinom;
+		scale1 = Math.sin(t * omega) / sinom;
+	}
+	return [
+		scale0 * from[0] + scale1 * to1[0],
+		scale0 * from[1] + scale1 * to1[1],
+		scale0 * from[2] + scale1 * to1[2],
+		scale0 * from[3] + scale1 * to1[3]];
+}
+
+function quat_to_mat4(q) {
+	var	xx = q[0] * q[0],
+		xy = q[0] * q[1],
+		xz = q[0] * q[2],
+		xw = q[0] * q[3],
+		yy = q[1] * q[1],
+		yz = q[1] * q[2],
+		yw = q[1] * q[3],
+		zz = q[2] * q[2],
+		zw = q[2] * q[3];
+	return [1-2*(yy+zz), 2*(xy-zw), 2*(xz+yw), 0,
+		2*(xy+zw), 1-2*(xx+zz), 2*(yz-xw), 0,
+		2*(xz-yw), 2*(yz+xw), 1-2*(xx+yy), 0,
+		0, 0, 0, 1];
+}
+
+function quat_normalise(q) {
+	var mag = q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3];
+	if(mag > EPSILON && Math.abs(mag-1) > EPSILON) {
+		mag = Math.sqrt(mag);
+		return [q[0]/mag, q[1]/mag, q[2]/mag, q[3]/mag];
+	}
+	return q;
+}

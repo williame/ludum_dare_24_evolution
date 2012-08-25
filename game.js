@@ -1,48 +1,79 @@
 var ws, game, messages;
 
-var g3d_player;
+var std_msg = {
+	hello: 1,
+	no_players: 2,
+};
 
 var grid, grid_program, grid_tex, grid_data;
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
-	if(data.welcome) {
+	console.log("RECEIVED",data);
+	if(data.cmd)
+		game.players[data.cmd.player].queue.push(data.cmd);
+	else if(data.welcome) {
+		game.welcomed = true;
 		game.player = data.welcome.name;
-		addMessage(3,null,"hello "+game.player);
+		game.num_players = 1;
+		game.players[game.player] = { name:game.player, queue:[], };
+		game.tick_length = data.welcome.tick_length;
+		game.start_time = now()-data.welcome.time_now;
+		addMessage(null,null,"hello "+game.player,std_msg.hello);
 		var other_players = "";
 		for(var competitor in data.welcome.other_players) {
 			competitor = data.welcome.other_players[competitor];
+			game.players[competitor] = { name:competitor, queue:[], };
 			if(other_players.length) other_players += ", ";
 			other_players += competitor;
 		}
 		if(other_players.length)
-			other_players = "playing against: "+other_players;
+			addMessage(5,null,"playing against: "+other_players);
 		else
-			other_players = "There are no other players!  Get a friend to play NOW!";
-		addMessage(5,null,other_players);
-	}
-	if(data.joining) {
-		if(!(data.joining in game.competitors)) {
-			game.competitors.push(data.joining);
+			addMessage(null,null,"There are no other players!  Get a friend to play NOW!",std_msg.no_players);
+	} else if(data.joining) {
+		removeMessage(std_msg.no_players);
+		if(!(data.joining in game.players)) {
+			game.num_players++;
+			game.players[data.joining] = { name:data.joining, queue:[], };
 			addMessage(3,null,data.joining+" joins the game");
 		}
-	}
-	if(data.leaving) {
-		var idx = game.competitors.indexOf(data.leaving);
-		if(-1 != idx) {
+	} else if(data.leaving) {
+		if(data.leaving in game.players) {
 			addMessage(3,null,data.leaving+" leaves the game");
-			game.competitors.splice(idx,1);
+			delete game.players[data.leaving];
+			game.num_players--;
+		}
+		if(game.num_players == 1) {
+			removeMessage(std_msg.no_players);
+			addMessage(null,null,"There are no other players left!  Get a friend to play NOW!",std_msg.no_players);
 		}
 	}
 }
 
-function addMessage(secs,from,text) {
-	var 	f = UILabel(from? from: "system"),
-		message = UIPanel([f,UILabel(text)],true);
+function addMessage(secs,from,text,tag) {
+	var 	f = from? UILabel(from): null,
+		message = UIPanel(f?[f,UILabel(text)]:[UILabel(text)],true);
 	message.bgColour = [0.2,0.2,0.2,1];
-	f.fgColour = from==game.name?[0.8,0.8,1,1]: !from? [1,0.8,0.8,1]: [0.8,1,0.8,1];
+	message.tag = tag;
+	if(f) f.fgColour = from==game.player?[0.8,0.8,1,1]: [0.8,1,0.8,1];
 	messages.tree.addChild(message);
-	setTimeout(function() { message.destroy(); },secs*1000);
+	if(secs) setTimeout(function() { message.destroy(); },secs*1000);
+}
+
+function getMessage(tag) {
+	for(var message in messages.tree.children) {
+		message = messages.tree.children[message];
+		if(message.tag == tag)
+			return message;
+	}
+	return null;
+}
+
+function removeMessage(tag) {
+	var message = getMessage(tag);
+	if(message) message.destroy();
+	return message != null;
 }
 
 function start() {
@@ -64,7 +95,7 @@ function start() {
 		try {
 			gameHandler(evt);
 		} catch(e) {
-			console.log(e);
+			console.log("WebSocket ERROR",e);
 			ws.onerror(e);
 		}
 	};
@@ -74,8 +105,14 @@ function inited() {
 	messages = UIWindow(false,UIPanel([],false,UILayoutRows));
 	messages.show();
 	game = {
+		welcomed:false,
 		pos:[0,0,0],
-		competitors:[],
+		attitude:{
+			roll:0,
+			pitch:0,
+			yaw:0,
+		},
+		players:[],
 	};
 	g3d_player = new G3D("fighter2.g3d");
 	loadFile("image","grid.png",function(handle) {
@@ -93,8 +130,24 @@ function render() {
 	if(g3d_player && grid) splash.dismiss(start);
 	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 	if(!game) return;
+	if(game.welcomed) {
+		// execute all outstanding commands
+		var time = (Math.floor((now() - game.start_time) / game.tick_length) * game.tick_length);
+		for(var player in game.players) {
+			player = game.players[player];
+			while(player.queue.length && player.queue[0].time <= time) {
+				cmd = player.queue.shift();
+				console.log("executing",player.name,cmd,time);
+			}
+			if(player.queue.length)
+				console.log("paused at",player.name,player.queue);
+		}
+	}
+	// draw it
 	var	pMatrix = createPerspective(90.0,canvas.width/canvas.height,0.1,2),
-		mvMatrix = mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]),
+		mvMatrix= mat4_multiply(
+			quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)),
+			mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2])),
 		nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
 	if(grid) {
 		gl.enable(gl.CULL_FACE);
@@ -214,16 +267,14 @@ function onMouseDown(evt,keys) {}
 function onMouseUp(evt,keys) {}
 
 function onKeyDown(evt,keys) {
-	if(evt.which == 37) { // left
-		game.pos[0] += 0.1;
-	} else if(evt.which == 38) { // up
-		game.pos[1] += 0.1;
-	} else if(evt.which == 39) { // right
-		game.pos[0] -= 0.1;
-	} else if(evt.which == 40) { // down
-		game.pos[1] -= 0.1;
-	}
+	if(!ws || ws.readyState != 1) return;
+	if(evt.which >= 37 && evt.which <= 40) // arrow keys
+		ws.send(JSON.stringify({
+			key:{
+				type:evt.type,
+				value:evt.which,
+			},
+		}));	
 }
 
-function onKeyUp(evt,keys) {}
-
+onKeyUp = onKeyDown;
