@@ -10,7 +10,7 @@ var std_msg = {
 
 var grid, grid_program, grid_tex, grid_data, player_models = [];
 
-function player_model() { return player_models[1]; } //Math.floor(Math.random()*player_models.length)]; }
+function player_model() { return player_models[Math.floor(Math.random()*player_models.length)]; }
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
@@ -210,10 +210,10 @@ function render() {
 		game.speed = player.speed;
 	}
 	// draw it
-	var	pMatrix = createPerspective(90.0,canvas.width/canvas.height,0.1,2),
-		mvMatrix= mat4_identity();
+	var	pMatrix = createPerspective(90.0,canvas.width/canvas.height,0.1,1000),
+		mvMatrix = mat4_identity();
 	if(game.welcomed)
-		mvMatrix= mat4_multiply(quat_to_mat4(game.rot),
+		mvMatrix = mat4_multiply(quat_to_mat4(game.rot),
 			mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]));
 	mvMatrix = mat4_multiply(mat4_translation(0,-0.2,-0.2),mvMatrix);
 	var nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
@@ -240,8 +240,12 @@ function render() {
 		gl.bindBuffer(gl.ARRAY_BUFFER,null);
 		gl.useProgram(null);
 	}
-	mvMatrix = mat4_multiply(quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)),mvMatrix);
-	mvMatrix = mat4_multiply(mat4_scale(0.02),mvMatrix);
+	if(!game.welcomed) return;
+	mvMatrix = mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]);
+	mvMatrix = mat4_multiply(mat4_scale(0.05),mvMatrix);
+	mvMatrix = mat4_multiply(mat4_translation(0,-0.2,-0.35),mvMatrix);
+	mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
+	nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
 	if(game.welcomed)
 		game.players[game.player].model.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
 }

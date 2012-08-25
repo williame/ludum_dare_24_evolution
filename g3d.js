@@ -77,8 +77,6 @@ function G3D(filename) {
 		var mesh_count = reader.uint16();
 		if(!mesh_count) throw "has no meshes";
 		if(reader.uint8()) throw "is not a mtMorphMesh";
-		g3d.min = [Number.MAX_VALUE,Number.MAX_VALUE,Number.MAX_VALUE];
-		g3d.max = [-Number.MAX_VALUE,-Number.MAX_VALUE,-Number.MAX_VALUE];
 		for(var i=0; i<mesh_count; i++) {
 			var mesh = new G3DMesh(g3d,reader);
 			g3d.meshes.push(mesh);
@@ -89,7 +87,6 @@ function G3D(filename) {
 				g3d.texture_filenames[mesh.texture_filename].push(mesh);
 			}
 		}
-		console.log(g3d.min,g3d.max);
 		if(reader.ofs != arrayBuffer.byteLength)
 			throw "not all bytes consumed by G3D loader!";
 		mesh.ready = (0 == g3d.texture_filenames.length);
@@ -121,7 +118,7 @@ function G3D(filename) {
 				"	texel = vec2(texCoord.x,1.0-texCoord.y);\n"+
 				"	vec3 normal = mix(normal0,normal1,lerp);\n"+
 				"	vec3 vertex = mix(vertex0,vertex1,lerp);\n"+
-				"	gl_Position = mvMatrix * pMatrix * vec4(vertex,1.0);\n"+
+				"	gl_Position = pMatrix * mvMatrix * vec4(vertex,1.0);\n"+
 				"	vec3 ambientLight = vec3(0.6,0.6,0.6);\n"+
 				"	vec3 lightColour = vec3(0.8,0.9,0.75);\n"+
 				"	vec3 lightDir = vec3(0.85,0.8,0.75);\n"+

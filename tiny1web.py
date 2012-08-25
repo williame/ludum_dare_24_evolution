@@ -11,9 +11,9 @@ define("access",type=str,multiple=True)
 define("local",type=bool)
 
 rot_speed = .02
-rot_left = euclid.Quaternion().rotate_euler(0.,-rot_speed,0.)
+rot_left = euclid.Quaternion().rotate_euler(0.,rot_speed,0.)
 rot_down = euclid.Quaternion().rotate_euler(0.,0.,-rot_speed)
-rot_right = euclid.Quaternion().rotate_euler(0.,rot_speed,0.)
+rot_right = euclid.Quaternion().rotate_euler(0.,-rot_speed,0.)
 rot_up = euclid.Quaternion().rotate_euler(0.,0.,rot_speed)
 
 class Game:
