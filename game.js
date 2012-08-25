@@ -13,6 +13,7 @@ function player_model() { return player_models[Math.floor(Math.random()*player_m
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
+	console.log("RECEIVED",data);
 	ws.last_message = now();
 	if(data.cmd)
 		game.players[data.cmd.player].queue.push(data.cmd);
