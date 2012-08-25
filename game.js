@@ -9,7 +9,6 @@ var grid, grid_program, grid_tex, grid_data;
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
-	console.log("RECEIVED",data);
 	if(data.cmd)
 		game.players[data.cmd.player].queue.push(data.cmd);
 	else if(data.welcome) {
@@ -145,9 +144,7 @@ function render() {
 	}
 	// draw it
 	var	pMatrix = createPerspective(90.0,canvas.width/canvas.height,0.1,2),
-		mvMatrix= mat4_multiply(
-			quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)),
-			mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2])),
+		mvMatrix= mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]),
 		nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
 	if(grid) {
 		gl.enable(gl.CULL_FACE);
@@ -173,6 +170,8 @@ function render() {
 		gl.useProgram(null);
 	}
 	mvMatrix = mat4_multiply(mvMatrix,mat4_translation(0,-0.1,-0.15));
+	mvMatrix = mat4_multiply(mvMatrix,
+		quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
 	mvMatrix = mat4_multiply(mvMatrix,mat4_scale(0.02));
 	g3d_player.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
 }
@@ -268,13 +267,25 @@ function onMouseUp(evt,keys) {}
 
 function onKeyDown(evt,keys) {
 	if(!ws || ws.readyState != 1) return;
-	if(evt.which >= 37 && evt.which <= 40) // arrow keys
+	var send = false, feedback = Math.PI*Math.PI, down = evt.type=="keydown";
+	switch(evt.which) {
+	case 37: // left
+		game.attitude.yaw = down? -feedback: 0; break; 
+	case 38: // up
+		game.attitude.roll = down? -feedback: 0; break;
+	case 39: // right
+		game.attitude.yaw = down? feedback: 0; break;
+	case 40: // down
+		game.attitude.roll = down? feedback: 0; break;
+	};
+	if(send) {
 		ws.send(JSON.stringify({
 			key:{
 				type:evt.type,
 				value:evt.which,
 			},
-		}));	
+		}));
+	}
 }
 
 onKeyUp = onKeyDown;
