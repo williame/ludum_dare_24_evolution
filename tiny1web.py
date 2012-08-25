@@ -63,10 +63,10 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
     def open(self):
         self.closed = False
         self.game.add_client(self)
+        print self.name,"joined;",len(self.game.clients),"players"
     def on_message(self,message):
         self.lastMessage = time.time()
         try:
-            print "PROCESSING",self.name,message
             message = json.loads(message)
             assert isinstance(message,dict)
             if "ping" in message:
@@ -105,6 +105,8 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.closed = True
         def do_close():
             self.game.remove_client(self)
+            if hasattr(self,"name"):
+                print self.name,"left;",len(self.game.clients),"players"
         io_loop.add_callback(do_close)
 
 
