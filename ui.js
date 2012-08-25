@@ -113,7 +113,7 @@ function UIContext() {
 		"uniform sampler2D texture;\n"+
 		"void main() {\n"+
 		"	vec4 c = texture2D(texture,tx);\n"+
-		"	gl_FragColor = colour * c.a;\n"+
+		"	gl_FragColor = colour * c;\n"+
 		"}");
 	this.program.mvp = gl.getUniformLocation(this.program,"mvp");
 	this.program.colour = gl.getUniformLocation(this.program,"colour");
@@ -276,8 +276,8 @@ function UIWindow(modal,tree) {
 				for(var child in node.children)
 					draw(node.children[child],ctx);
 			};
-			draw(tree,this.ctx);
 			this.isDirty = false;
+			draw(tree,this.ctx);
 		}
 		this.ctx.draw(this.mvp);
 	};

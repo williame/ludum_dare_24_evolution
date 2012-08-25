@@ -45,14 +45,7 @@ function addMessage(secs,from,text) {
 	setTimeout(function() { message.destroy(); },secs*1000);
 }
 
-function inited() {
-	messages = UIWindow(false,UIPanel([],false,UILayoutRows));
-	messages.show();
-	game = {
-		pos:[0,0,0],
-		competitors:[],
-	};
-	g3d_player = new G3D("fighter2.g3d");
+function start() {
 	var ws_path = "ws://"+window.location.href.split("/")[2]+"/ws-ld24";
 	ws = new WebSocket(ws_path);
 	ws.onopen = function() {
@@ -75,6 +68,16 @@ function inited() {
 			ws.onerror(e);
 		}
 	};
+}
+
+function inited() {
+	messages = UIWindow(false,UIPanel([],false,UILayoutRows));
+	messages.show();
+	game = {
+		pos:[0,0,0],
+		competitors:[],
+	};
+	g3d_player = new G3D("fighter2.g3d");
 	loadFile("image","grid.png",function(handle) {
 		grid_tex = handle;
 		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
@@ -87,6 +90,7 @@ function inited() {
 }
 
 function render() {
+	if(g3d_player && grid) splash.dismiss(start);
 	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 	if(!game) return;
 	var	pMatrix = createPerspective(90.0,canvas.width/canvas.height,0.1,2),

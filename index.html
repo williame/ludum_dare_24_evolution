@@ -2,15 +2,12 @@
 <head><title>LD24 entry</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <style type="text/css">
-body { border:0px;margin:0px;padding:0px; 
-	background-color: black;
-	background-image:url('logo.jpg'); background-repeat:no-repeat;
-	background-attachment:fixed; background-position:center;  }
+body { border:0px;margin:0px;padding:0px; background-color: black; }
 #game-canvas { width:0px; height:0px;border:0px;margin:0px;padding:0px; }
 </style>
 <script type="text/javascript">
 
-var gl, canvas;
+var gl, canvas, splash;
 
 function init() {
 	canvas = document.getElementById("game-canvas");
@@ -33,10 +30,6 @@ function init() {
 	var 	keys = [],
 		onMouseDown = function(evt) {
 			evt.cancelBubble = true;
-			if(!canvas.width || !canvas.height) {
-				canvas.style.width = canvas.style.height = "100%";
-				window.onresize();
-			}
 			if(!onMouseDownUI(evt))
 				window.onMouseDown(evt,keys);
 		},
@@ -56,20 +49,49 @@ function init() {
 				window.onKeyUp(evt,keys);
 			}
 		};
-	var loaded = function() {
-		if(_loading.length) return;
+	var logo_tex,
+		load_count = 5,
+		loaded = function() {
+		if(--load_count) return;
 		document.addEventListener("mousedown",onMouseDown,true);
 		document.addEventListener("mouseup",onMouseUp,true);
 		document.addEventListener("keydown",onKeyDown,true);
 		document.addEventListener("keyup",onKeyUp,true);
 		window.focus();
+		canvas.style.width = canvas.style.height = "100%";
+		window.onresize();
 		window.requestAnimFrame(loop);
+		splash = UIComponent();
+		splash.dismissed = false;
+		splash.dismiss = function(cb) {
+			if(splash.dismissed) return;
+			splash.dismissed = cb;
+			splash.start_dismiss = now();
+		};
+		splash.draw = function(ctx) {
+			var t = splash.dismissed? (now()-splash.start_dismiss)/5000: 0;
+			if(t > 1) {
+				splash.window().hide();
+				setTimeout(splash.dismissed,0);
+				return;
+			}
+			var x = (ctx.width/logo_tex.width)/2;
+			var y = (ctx.height/logo_tex.height)/2;
+			console.log("logo",x,y);
+			ctx.drawRect(logo_tex,[1,1,1,1-t],0,0,ctx.width,ctx.height,-x,-y,1+x,1+y);
+			splash.dirty();
+		};
+		UIWindow(false,splash).show();
 		inited();
 	};
 	loadFile("javascript","game.js",loaded);
-	loadFile("javascript","glutil.js",loaded);
+	loadFile("javascript","glutil.js",function() {
+			loadFile("image","logo.jpg",function(handle) { logo_tex = handle; loaded(); });
+			loaded();
+	});
 	loadFile("javascript","ui.js",loaded);
 	loadFile("javascript","g3d.js",loaded);
+	
 }
 
 function isUndefined(o) { return typeof(o) == 'undefined'; }
