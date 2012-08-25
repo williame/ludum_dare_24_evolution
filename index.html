@@ -1,5 +1,5 @@
 <html>
-<head><title>barebones.js</title>
+<head><title>LD24 entry</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <style type="text/css">
 body { border:0px;margin:0px;padding:0px; }
@@ -8,10 +8,39 @@ body { border:0px;margin:0px;padding:0px; }
 <script type="text/javascript">
 
 var UI_inited = false;
-var gl, canvas, g3d_test;
+var gl, canvas, ws, game;
 
-function game() { // you replace this!
-	g3d_test = new G3D("data/test.g3d");
+function gameHandler(evt) {
+	var data = JSON.parse(evt.data);
+	if(data.welcome) {
+		game.player = data.welcome.name;
+		console.log("hello",game.player);
+	}
+}
+
+function inited() {
+	game = {};
+	var ws_path = "ws://"+window.location.href.split("/")[2]+"/ws-ld24";
+	ws = new WebSocket(ws_path);
+	ws.onopen = function() {
+		console.log("websocket",ws_path,"open");
+	};
+	ws.onclose = function() {
+		console.log("websocket",ws_path,"closed");
+		game = null;
+	};
+	ws.onerror = function(e) {
+		console.log("websocket",ws_path,"encountered an error:",e);
+		game = null;
+		ws.close();
+	};
+	ws.onmessage = function(evt) {
+		try {
+			gameHandler(evt);
+		} catch(e) {
+			ws.onerror(e);
+		}
+	};
 /*	var win = UIWindow(true,UIPanel([
 		UIPanel([UILabel("this is a test"),
 			UILabel("this too"),
@@ -21,13 +50,13 @@ function game() { // you replace this!
 	win.show();*/
 }
 
-function render() { // you replace this!
+function render() {
 	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 	var zoom = 2,
 		pMatrix = createPerspective(60.0,canvas.offsetWidth/canvas.offsetHeight,0.1,zoom*2),
 		mvMatrix = createLookAt([zoom,zoom*0.8,zoom],[0,0,0],[0,1,0]),
 		nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
-	g3d_test.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
+	//g3d_test.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
 }
 
 function init() {
@@ -67,7 +96,7 @@ function init() {
 		document.addEventListener("keydown",onKeyDown,true);
 		document.addEventListener("keyup",onKeyUp,true);
 		window.requestAnimFrame(loop);
-		game();
+		inited();
 	};
 	loadFile("javascript","glutil.js",loaded);
 	loadFile("javascript","ui.js",loaded);

@@ -1,4 +1,5 @@
-import os, subprocess, base64
+import os, subprocess, base64, json, traceback
+from time import time as now
 import tornado.ioloop
 import tornado.websocket
 import tornado.web
@@ -9,16 +10,72 @@ define("branch",default="master")
 define("access",type=str,multiple=True)
 define("local",type=bool)
 
-class EchoWebSocket(tornado.websocket.WebSocketHandler):
+class Game:
+    def __init__(self):
+        self.clients = set()
+        self.seq = 1
+    def add_client(self,client):
+        client.name = "player%d"%self.seq
+        self.seq += 1
+        message = '{"joining":"%s"}'%client.name
+        for competitor in self.clients:
+            competitor.write_message(message)
+        self.clients.add(client)
+        client.write_message('{"welcome":{"name":"%s"}}'%client.name)
+    def remove_client(self,client):
+        if client in self.clients:
+            self.clients.remove(client)
+            message = '{"leaving":"%s"}'%client.name
+            for competitor in self.clients:
+                competitor.write_message(message)
+    def chat(self,client,lines):
+        messages = []
+        for line in lines:
+            assert isinstance(line,basestring)
+            messages.append({client.name: line})
+        messages = json.dumps({"chat":messages})
+        for recipient in self.clients:
+            recipient.write_message(messages)
+
+class LD24WebSocket(tornado.websocket.WebSocketHandler):
+    game = Game() # everyone in the same game for now
     def allow_draft76():
     	    print "draft76 rejected"
     	    return False
     def open(self):
-        print "WebSocket opened"
+        self.closed = False
+        self.startTime = now()
+        self.game.add_client(self)
     def on_message(self,message):
-        self.write_message(message)
+        self.lastMessage = now()
+        try:
+            message = json.loads(message)
+            if "ping" in message:
+                assert isinstance(message["ping"],int)
+                self.write_message('{"pong":%d}'%message["ping"])
+            if "chat" in message:
+                assert isinstance(message["chat"],list)
+                for line in message["chat"]:
+                    assert isinstance(line,basestring)
+                    self.game.chat(self,line)
+        except:
+            print "ERROR processing",message
+            traceback.print_exc()
+            self.close()
+    def write_message(self,msg):
+        if self.closed: return
+        try:
+            tornado.websocket.WebSocketHandler.write_message(self,msg)
+        except:
+            print "ERROR sending join to",self.name
+            traceback.print_exc()
+            self.close()
     def on_close(self):
-        print "WebSocket closed"
+        if self.closed: return
+        self.closed = True
+        def do_close():
+            self.game.remove_client(self)
+        io_loop.add_callback(do_close)
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -58,7 +115,7 @@ class MainHandler(tornado.web.RequestHandler):
         
 
 application = tornado.web.Application([
-    (r"/ws-echo", EchoWebSocket),
+    (r"/ws-ld24", LD24WebSocket),
     (r"/(.*)", MainHandler),
 ])
 
@@ -66,6 +123,7 @@ if __name__ == "__main__":
     parse_command_line()
     application.listen(options.port)
     try:
-        tornado.ioloop.IOLoop.instance().start()
+        io_loop = tornado.ioloop.IOLoop.instance()
+        io_loop.start()
     except KeyboardInterrupt:
         print "bye!"
