@@ -100,7 +100,7 @@ class Game:
                 if 39 in client.keys: client.roll_speed -= roll_speed
                 client.roll_speed = max(-max_roll_speed,min(max_roll_speed,client.roll_speed))
                 if 37 not in client.keys and 39 not in client.keys:
-                    client.roll_speed *= 0.9
+                    client.roll_speed *= .9
                 client.rot *= euclid.Quaternion().rotate_euler(0.,client.roll_speed,0.)
                 # pitch
                 if 38 in client.keys: client.pitch_speed += pitch_speed
@@ -113,9 +113,11 @@ class Game:
                 # speed
                 if 83 in client.keys: client.speed -= speed
                 if 87 in client.keys: client.speed += speed
-                client.speed = max(-max_speed,min(max_speed,client.speed))
+                client.speed = max(0.,min(max_speed,client.speed)) # no going backwards
                 if 83 not in client.keys and 87 not in client.keys:
-                    client.speed *= 0.9
+                    client.speed *= .9
+                move = client.rot.conjugated() * euclid.Vector3(0.,0.,-client.speed)
+                client.pos += move
                 # print client.name, client.roll_speed, client.pitch_speed, client.rot
                 updates.append({
                     "name":client.name,
