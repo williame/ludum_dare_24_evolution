@@ -97,6 +97,7 @@ class Game:
         for client in self.clients.copy():
             if client.lastMessage < stale:
                 print "timing out",client.name,client.lastMessage-time.time()
+                self.clients.remove(client)
                 client.close()
         # move simulation onwards?
         while self.tick+self.tick_length <= self.now():
