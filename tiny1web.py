@@ -14,6 +14,8 @@ roll_speed = .02
 max_roll_speed = .5
 pitch_speed = .02
 max_pitch_speed = .5
+speed = .02
+max_speed = .5
 
 class Game:
     TICKS_PER_SECOND = 4
@@ -93,19 +95,27 @@ class Game:
         while self.tick+self.tick_length <= self.now():
             updates = []
             for client in self.clients:
+                # roll
                 if 37 in client.keys: client.roll_speed += roll_speed
-                if 38 in client.keys: client.pitch_speed += pitch_speed
                 if 39 in client.keys: client.roll_speed -= roll_speed
-                if 40 in client.keys: client.pitch_speed -= pitch_speed
                 client.roll_speed = max(-max_roll_speed,min(max_roll_speed,client.roll_speed))
-                client.pitch_speed = max(-max_pitch_speed,min(max_pitch_speed,client.pitch_speed))
                 if 37 not in client.keys and 39 not in client.keys:
                     client.roll_speed *= 0.9
+                client.rot *= euclid.Quaternion().rotate_euler(0.,client.roll_speed,0.)
+                # pitch
+                if 38 in client.keys: client.pitch_speed += pitch_speed
+                if 40 in client.keys: client.pitch_speed -= pitch_speed
+                client.pitch_speed = max(-max_pitch_speed,min(max_pitch_speed,client.pitch_speed))
                 if 38 not in client.keys and 40 not in client.keys:
                     client.pitch_speed *= 0.9
-                client.rot *= euclid.Quaternion().rotate_euler(0.,client.roll_speed,0.)
                 client.rot *= euclid.Quaternion().rotate_euler(0.,0.,client.pitch_speed)
                 client.rot.normalize()
+                # speed
+                if 83 in client.keys: client.speed -= speed
+                if 87 in client.keys: client.speed += speed
+                client.speed = max(-max_speed,min(max_speed,client.speed))
+                if 83 not in client.keys and 87 not in client.keys:
+                    client.speed *= 0.9
                 # print client.name, client.roll_speed, client.pitch_speed, client.rot
                 updates.append({
                     "name":client.name,
@@ -130,7 +140,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.origin = self.request.headers.get("origin","")
         self.userAgent = self.request.headers.get("user-agent")
         print "connection",self.request.remote_ip, self.origin, self.userAgent
-        if not self.origin.startswith("http://williame.github.com/") and not \
+        if self.origin != "http://williame.github.com" and not \
             self.origin.startswith("http://31.192.226.244:") and not \
             self.origin.startswith("http://localhost:"):
             print "kicking out bad origin"
@@ -162,7 +172,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
                 assert isinstance(message["key"]["type"],basestring)
                 assert message["key"]["type"] in ("keydown","keyup")
                 assert isinstance(message["key"]["value"],int)
-                assert message["key"]["value"] in (37,38,39,40)
+                assert message["key"]["value"] in (37,38,39,40,83,87)
                 if message["key"]["type"] == "keydown":
                     assert message["key"]["value"] not in self.keys
                     self.keys.add(message["key"]["value"])

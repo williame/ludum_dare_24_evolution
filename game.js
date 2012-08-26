@@ -345,42 +345,39 @@ function onMouseUp(evt,keys) {}
 
 function onKeyDown(evt,keys) {
 	if(!ws || ws.readyState != 1) return;
-	var send = false, feedback = Math.PI*Math.PI,
+	var feedback = Math.PI*Math.PI,
 		key = evt.which, down = evt.type=="keydown";
 	// if you are holding left and press right, they cancel out...
 	if(key==37) { // left
-		send = true;
 		if(keys[39]) {
 			key = 39; down = !down; feedback = -feedback;
 		}
 		game.attitude.yaw = down? -feedback: 0;
-	} else if(key == 39) { // right
-		send = true;
+	} else if(key==39) { // right
 		if(keys[37]) {
 			key = 37; down = !down; feedback = -feedback;
 		}
 		game.attitude.yaw = down? feedback: 0;
-	} else if(key == 38) { // up
-		send = true;
+	} else if(key==38) { // up
 		if(keys[40]) {
 			key = 40; down = !down; feedback = -feedback;
 		}
 		game.attitude.roll = down? -feedback: 0;
-	} else if(key == 40) { // down
-		send = true;
+	} else if(key==40) { // down
 		if(keys[38]) {
 			key = 38; down = !down; feedback = -feedback;
 		}
 		game.attitude.roll = down? feedback: 0;
+	} else if(key!=83 && key!=87) {
+		console.log("ignoring",evt.type,evt.which);
+		return;
 	}
-	if(send) {
-		ws.send(JSON.stringify({
-			key:{
-				type:down?"keydown":"keyup",
-				value:key,
-			},
-		}));
-	}
+	ws.send(JSON.stringify({
+		key:{
+			type:down?"keydown":"keyup",
+			value:key,
+		},
+	}));
 }
 
 onKeyUp = onKeyDown;
