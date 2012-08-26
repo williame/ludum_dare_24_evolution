@@ -10,11 +10,10 @@ define("branch",default="master")
 define("access",type=str,multiple=True)
 define("local",type=bool)
 
-rot_speed = .02
-rot_left = euclid.Quaternion().rotate_euler(0.,rot_speed,0.)
-rot_down = euclid.Quaternion().rotate_euler(0.,0.,-rot_speed)
-rot_right = euclid.Quaternion().rotate_euler(0.,-rot_speed,0.)
-rot_up = euclid.Quaternion().rotate_euler(0.,0.,rot_speed)
+roll_speed = .02
+max_roll_speed = .5
+pitch_speed = .02
+max_pitch_speed = .5
 
 class Game:
     TICKS_PER_SECOND = 4
@@ -94,13 +93,20 @@ class Game:
         while self.tick+self.tick_length <= self.now():
             updates = []
             for client in self.clients:
-                q = euclid.Quaternion()
-                if 37 in client.keys: q *= rot_left
-                if 38 in client.keys: q *= rot_up
-                if 39 in client.keys: q *= rot_right
-                if 40 in client.keys: q *= rot_down
-                client.rot *= q
+                if 37 in client.keys: client.roll_speed += roll_speed
+                if 38 in client.keys: client.pitch_speed += pitch_speed
+                if 39 in client.keys: client.roll_speed -= roll_speed
+                if 40 in client.keys: client.pitch_speed -= pitch_speed
+                client.roll_speed = max(-max_roll_speed,min(max_roll_speed,client.roll_speed))
+                client.pitch_speed = max(-max_pitch_speed,min(max_pitch_speed,client.pitch_speed))
+                if 37 not in client.keys and 39 not in client.keys:
+                    client.roll_speed *= 0.9
+                if 38 not in client.keys and 40 not in client.keys:
+                    client.pitch_speed *= 0.9
+                client.rot *= euclid.Quaternion().rotate_euler(0.,client.roll_speed,0.)
+                client.rot *= euclid.Quaternion().rotate_euler(0.,0.,client.pitch_speed)
                 client.rot.normalize()
+                # print client.name, client.roll_speed, client.pitch_speed, client.rot
                 updates.append({
                     "name":client.name,
                     "pos":(client.pos.x,client.pos.y,client.pos.z),
@@ -135,6 +141,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.pos = euclid.Vector3(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5))
         self.rot = euclid.Quaternion()
         self.speed = 0
+        self.roll_speed = self.pitch_speed = 0
         self.game.add_client(self)
         print self.name,"joined;",len(self.game.clients),"players"
     def on_message(self,message):
