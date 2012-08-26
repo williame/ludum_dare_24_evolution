@@ -134,12 +134,12 @@ class Game:
                 # are we out-of-bounds?
                 ### ideally bounce etc, but for now we'll just stop you dead
                 extreme = .85
-                if client.pos.x < -extreme: client.pos.x, client.speed = -extreme, 0.
-                if client.pos.x >  extreme: client.pos.x, client.speed =  extreme, 0.
-                if client.pos.y < -extreme: client.pos.y, client.speed = -extreme, 0.
-                if client.pos.y >  extreme: client.pos.y, client.speed =  extreme, 0.
-                if client.pos.z < -extreme: client.pos.z, client.speed = -extreme, 0.
-                if client.pos.z >  extreme: client.pos.z, client.speed =  extreme, 0.
+                if client.pos.x < -extreme: client.pos.x = -extreme
+                if client.pos.x >  extreme: client.pos.x =  extreme
+                if client.pos.y < -extreme: client.pos.y = -extreme
+                if client.pos.y >  extreme: client.pos.y =  extreme
+                if client.pos.z < -extreme: client.pos.z = -extreme
+                if client.pos.z >  extreme: client.pos.z =  extreme
                 #print client.name, client.keys, client.roll_speed, client.pitch_speed, client.speed, client.rot, client.pos, move
                 updates.append({
                     "name":client.name,
