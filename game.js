@@ -8,7 +8,9 @@ var std_msg = {
 	no_players: 5,
 };
 
-var grid, grid_program, grid_tex, grid_data, player_models = [];
+var grid, grid_program, grid_data, grid_sides = [];
+
+var player_models = [];
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
@@ -176,17 +178,23 @@ function inited() {
 		},
 		players:[],
 	};
-	for(var i=0; i<6; i++)
-		player_models.push(new G3D("fighter"+(i+1)+".g3d"));
-	loadFile("image","grid.png",function(handle) {
-		grid_tex = handle;
-		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
+	var loadGrid = function(handle) {
+		grid_sides.push(handle);
+		gl.bindTexture(gl.TEXTURE_2D,handle);
 		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
 		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
 		gl.bindTexture(gl.TEXTURE_2D,null);
-		grid = gl.createBuffer();
-		initGrid(64);
-	});
+		if(grid_sides.length == 6)
+			initGrid(64);
+	};
+	loadFile("image","grid_blue.png",loadGrid);
+	loadFile("image","grid_green.png",loadGrid);
+	loadFile("image","grid_pink.png",loadGrid);
+	loadFile("image","grid_purple.png",loadGrid);
+	loadFile("image","grid_red.png",loadGrid);
+	loadFile("image","grid_yellow.png",loadGrid);
+	for(var i=0; i<6; i++)
+		player_models.push(new G3D("fighter"+(i+1)+".g3d"));
 }
 
 function render() {
@@ -216,7 +224,6 @@ function render() {
 		gl.uniformMatrix4fv(grid_program.pMatrix,false,pMatrix);
 		gl.uniformMatrix4fv(grid_program.mvMatrix,false,camMatrix);
 		gl.uniformMatrix4fv(grid_program.nMatrix,false,mat4_inverse(mat4_transpose(camMatrix)));
-		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
 		gl.uniform1i(grid_program.texture,0);
 		gl.bindBuffer(gl.ARRAY_BUFFER,grid);
 		gl.enableVertexAttribArray(grid_program.vertex);
@@ -225,7 +232,10 @@ function render() {
 		gl.vertexAttribPointer(grid_program.normal,3,gl.FLOAT,false,4*(3+3+2),4*3);
 		gl.enableVertexAttribArray(grid_program.texCoord);
 		gl.vertexAttribPointer(grid_program.texCoord,2,gl.FLOAT,false,4*(3+3+2),4*(3+3));
-		gl.drawArrays(gl.TRIANGLES,0,grid_data.length/8);
+		for(var side=0; side<6; side++) {
+			gl.bindTexture(gl.TEXTURE_2D,grid_sides[side]);
+			gl.drawArrays(gl.TRIANGLES,side*6,6);
+		}
 		gl.disableVertexAttribArray(grid_program.texCoord);
 		gl.disableVertexAttribArray(grid_program.normal);
 		gl.disableVertexAttribArray(grid_program.vertex);
@@ -256,6 +266,7 @@ function render() {
 }
 
 function initGrid(sz) {
+	grid = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER,grid);
 	var vertices = [
 		// Front
