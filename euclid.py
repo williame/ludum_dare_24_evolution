@@ -1325,6 +1325,13 @@ class Quaternion:
                          self.y ** 2 + \
                          self.z ** 2)
 
+    def transform(self,v):
+        x,y,z,w = self.x,self.y,self.z,self.w
+        return Vector3(
+            w*w*v.x + 2*y*w*v.z - 2*z*w*v.y + x*x*v.x + 2*y*x*v.y + 2*z*x*v.z - z*z*v.x - y*y*v.x,
+            2*x*y*v.x + y*y*v.y + 2*z*y*v.z + 2*w*z*v.x - z*z*v.y + w*w*v.y - 2*x*w*v.z - x*x*v.y,
+            2*x*z*v.x + 2*y*z*v.y + z*z*v.z - 2*w*y*v.x - y*y*v.z + 2*w*x*v.y - x*x*v.z + w*w*v.z)
+
     magnitude = __abs__
 
     def magnitude_squared(self):

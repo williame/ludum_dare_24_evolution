@@ -12,19 +12,21 @@ define("local",type=bool)
 
 num_models = 6
 
-roll_speed = .02
-max_roll_speed = .5
-pitch_speed = .02
-max_pitch_speed = .5
-speed = .02
-max_speed = .5
+ticks_per_sec = 8
+base_speed = .003
+base_max = .2
+roll_speed = base_speed
+max_roll_speed = base_max
+pitch_speed = base_speed
+max_pitch_speed = base_max
+speed = base_speed
+max_speed = base_max
 
 class Game:
-    TICKS_PER_SECOND = 4
     def __init__(self):
         self.clients = set()
-        self.tick_length = 1./self.TICKS_PER_SECOND
-        self.ticker = tornado.ioloop.PeriodicCallback(self.run,1000/(self.TICKS_PER_SECOND*2))
+        self.tick_length = 1./ticks_per_sec
+        self.ticker = tornado.ioloop.PeriodicCallback(self.run,1000/(ticks_per_sec*2))
     def now(self):
         return time.time()-self.start_time
     def add_client(self,client):
@@ -53,7 +55,7 @@ class Game:
         message = {
             "welcome":{
                 "name":client.name,
-                "tick_length":1000/self.TICKS_PER_SECOND,
+                "tick_length":1000/ticks_per_sec,
                 "start_time":self.start_time*1000,
                 "time_now":self.now()*1000,
                 "players":[{
@@ -77,7 +79,7 @@ class Game:
                 for competitor in self.clients:
                     competitor.write_message(message)                
     def send_cmd(self,cmd):
-        cmd["time"] = math.floor(self.now()*self.TICKS_PER_SECOND+1/self.TICKS_PER_SECOND)/self.TICKS_PER_SECOND*1000
+        cmd["time"] = math.floor(self.now()*ticks_per_sec+1/ticks_per_sec)/ticks_per_sec*1000
         cmd = json.dumps({"cmd":cmd})
         for client in self.clients:
             client.write_message(cmd)
@@ -106,23 +108,23 @@ class Game:
                 client.roll_speed = max(-max_roll_speed,min(max_roll_speed,client.roll_speed))
                 if 37 not in client.keys and 39 not in client.keys:
                     client.roll_speed *= .9
-                client.rot *= euclid.Quaternion().rotate_euler(0.,client.roll_speed,0.)
                 # pitch
                 if 38 in client.keys: client.pitch_speed += pitch_speed
                 if 40 in client.keys: client.pitch_speed -= pitch_speed
                 client.pitch_speed = max(-max_pitch_speed,min(max_pitch_speed,client.pitch_speed))
                 if 38 not in client.keys and 40 not in client.keys:
-                    client.pitch_speed *= 0.9
-                client.rot *= euclid.Quaternion().rotate_euler(0.,0.,client.pitch_speed)
-                client.rot.normalize()
+                    client.pitch_speed *= .9
+                # apply
+                client.rot *= euclid.Quaternion().rotate_euler(0.,client.roll_speed,client.pitch_speed)
                 # speed
                 if 83 in client.keys: client.speed -= speed
                 if 87 in client.keys: client.speed += speed
                 client.speed = max(0.,min(max_speed,client.speed)) # no going backwards
                 if 83 not in client.keys and 87 not in client.keys:
                     client.speed *= .9
-                move = client.rot.conjugated() * euclid.Vector3(0.,0.,-client.speed)
-                client.pos += move
+                if client.speed:
+                    move = client.rot.transform(euclid.Vector3(0.,0.,-1)) * client.speed
+                    client.pos += move
                 # are we out-of-bounds?
                 ### ideally bounce etc, but for now we'll just stop you dead
                 extreme = .85
@@ -165,7 +167,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.lastMessage = time.time()
         self.keys = set()
         self.pos = euclid.Vector3(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5))
-        self.rot = euclid.Quaternion()
+        self.rot = euclid.Quaternion() #.rotate_euler(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5)).normalized()
         self.speed = 0
         self.roll_speed = self.pitch_speed = 0
         self.game.add_client(self)
@@ -190,10 +192,9 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
                 assert isinstance(message["key"]["value"],int)
                 assert message["key"]["value"] in (37,38,39,40,83,87)
                 if message["key"]["type"] == "keydown":
-                    assert message["key"]["value"] not in self.keys
                     self.keys.add(message["key"]["value"])
                 else:
-                    self.keys.remove(message["key"]["value"])
+                    self.keys.discard(message["key"]["value"])
         except:
             print "ERROR processing",message
             traceback.print_exc()

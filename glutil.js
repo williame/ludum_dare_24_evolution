@@ -241,6 +241,10 @@ function vec3_normalise(v) {
 	return [v[0]/mag, v[1]/mag, v[2]/mag];
 }
 
+function vec3_neg(v) {
+	return [-v[0],-v[1],-v[2]];
+}
+
 function quat_vec3_multiply(q,v) {
 	var	vn = vec3_normalise(v),
 		vq = [vn[0],vn[1],v[2],0],
@@ -289,6 +293,10 @@ function quat_slerp(from,to,t) {
 		scale0 * from[3] + scale1 * to1[3]];
 }
 
+function vec3_sub(a,b) {
+	return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+}
+
 function quat_to_mat4(q) {
 	var	xx = q[0] * q[0],
 		xy = q[0] * q[1],
@@ -306,7 +314,7 @@ function quat_to_mat4(q) {
 }
 
 function quat_inverse(q) {
-	return [-q[0],-q[1],-q[3],q[4]]
+	return [-q[0],-q[1],-q[2],q[3]]
 }
 quat_conjugate = quat_inverse
 

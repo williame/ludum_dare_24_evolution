@@ -19,9 +19,9 @@ function gameHandler(evt) {
 		for(var update in data.updates) {
 			update = data.updates[update];
 			var player = game.players[update.name];
-			player.pos = update.pos;
-			player.rot = update.rot;
-			player.speed = update.speed;
+			if(update.pos) player.pos = update.pos;
+			if(update.rot) player.rot = update.rot;
+			if(update.speed) player.speed = update.speed;
 		}
 	}
 	else if(data.pong) {
@@ -54,12 +54,7 @@ function gameHandler(evt) {
 			};
 			for(var key in player.keys)
 				game.players[player.name].keys[key] = true;
-			if(player.name == game.player) {
-				game.time = player.time;
-				game.pos = player.pos;
-				game.rot = player.rot;
-				game.speed = player.speed;
-			} else {
+			if(player.name != game.player) {
 				if(other_players.length) other_players += ", ";
 				other_players += player.name;
 			}
@@ -204,27 +199,23 @@ function render() {
 	}
 	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 	if(!game) return;
-	if(game.welcomed) {
-		var time = (Math.floor((now() - game.start_time) / game.tick_length) * game.tick_length);
-		var player = game.players[game.player];
-		game.pos = player.pos;
-		game.rot = player.rot;
-		game.speed = player.speed;
-	}
 	// draw it
-	var	pMatrix = createPerspective(24.0,canvas.width/canvas.height,0.01,10),
-		mvMatrix = mat4_identity();
-	if(game.welcomed)
-		mvMatrix = mat4_multiply(quat_to_mat4(game.rot),
-			mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]));
-	mvMatrix = mat4_multiply(mat4_translation(0,-0.2,-0.2),mvMatrix);
+	var	pMatrix = createPerspective(90.0,canvas.width/canvas.height,0.01,10),
+		camMatrix = mat4_identity(),
+		us = null;
+	if(game.welcomed) {
+		var us = game.players[game.player];
+		camMatrix = mat4_multiply(quat_to_mat4(us.rot),camMatrix);
+		camMatrix = mat4_multiply(mat4_translation(-us.pos[0],-us.pos[1],-us.pos[2]),camMatrix);
+		camMatrix = mat4_multiply(mat4_translation(0,-0.1,-0.2),camMatrix);
+	}
 	if(grid) {
 		gl.enable(gl.CULL_FACE);
 		gl.frontFace(gl.CW);
 		gl.useProgram(grid_program);
 		gl.uniformMatrix4fv(grid_program.pMatrix,false,pMatrix);
-		gl.uniformMatrix4fv(grid_program.mvMatrix,false,mvMatrix);
-		gl.uniformMatrix4fv(grid_program.nMatrix,false,mat4_inverse(mat4_transpose(mvMatrix)));
+		gl.uniformMatrix4fv(grid_program.mvMatrix,false,camMatrix);
+		gl.uniformMatrix4fv(grid_program.nMatrix,false,mat4_inverse(mat4_transpose(camMatrix)));
 		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
 		gl.uniform1i(grid_program.texture,0);
 		gl.bindBuffer(gl.ARRAY_BUFFER,grid);
@@ -243,20 +234,25 @@ function render() {
 	}
 	if(!game.welcomed) return;
 	for(var player in game.players) {
-		if(player == game.player) continue;
 		player = game.players[player];
-		var localMatrix = mvMatrix;
-		localMatrix = mat4_multiply(localMatrix,mat4_translation(player.pos[0],player.pos[1],player.pos[2]));
-		localMatrix = mat4_multiply(localMatrix,mat4_scale(0.05));
-		localMatrix = mat4_multiply(localMatrix,quat_to_mat4(player.rot));
-		player.model.draw(0,pMatrix,localMatrix,mat4_inverse(mat4_transpose(localMatrix)));
+		var mvMatrix = camMatrix;
+		mvMatrix = mat4_multiply(mat4_translation(vec3_sub(player.pos,us.pos)),mvMatrix);
+		mvMatrix = mat4_multiply(mat4_scale(0.02),mvMatrix);
+		mvMatrix = mat4_multiply(mat4_translation(0,-0.05,-0.35),mvMatrix);
+		//mvMatrix = mat4_multiply(quat_to_mat4(player.rot),mvMatrix);
+		if(player.name == game.player) {
+			//...
+		}
+		player.model.draw(0,pMatrix,mvMatrix,mat4_inverse(mat4_transpose(mvMatrix)));
 	}
+	/*
 	mvMatrix = mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]);
 	mvMatrix = mat4_multiply(mat4_scale(0.05),mvMatrix);
 	mvMatrix = mat4_multiply(mat4_translation(0,-0.2,-0.35),mvMatrix);
 	mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
 	if(game.welcomed)
 		game.players[game.player].model.draw(0,pMatrix,mvMatrix,mat4_inverse(mat4_transpose(mvMatrix)));
+	*/
 }
 
 function initGrid(sz) {
