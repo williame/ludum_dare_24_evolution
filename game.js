@@ -80,7 +80,7 @@ function gameHandler(evt) {
 				speed:data.joining.speed,
 				model:player_models[data.joining.model],
 			};
-			addMessage(3,null,data.joining+" joins the game");
+			addMessage(3,null,data.joining.name+" joins the game");
 		}
 	} else if(data.leaving) {
 		if(data.leaving in game.players) {
