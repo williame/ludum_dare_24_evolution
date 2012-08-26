@@ -118,6 +118,15 @@ class Game:
                     client.speed *= .9
                 move = client.rot.conjugated() * euclid.Vector3(0.,0.,-client.speed)
                 client.pos += move
+                # are we out-of-bounds?
+                ### ideally bounce etc, but for now we'll just stop you dead
+                extreme = .85
+                if client.pos.x < -extreme: client.pos.x, client.speed = -extreme, 0.
+                if client.pos.x >  extreme: client.pos.x, client.speed =  extreme, 0.
+                if client.pos.y < -extreme: client.pos.y, client.speed = -extreme, 0.
+                if client.pos.y >  extreme: client.pos.y, client.speed =  extreme, 0.
+                if client.pos.z < -extreme: client.pos.z, client.speed = -extreme, 0.
+                if client.pos.z >  extreme: client.pos.z, client.speed =  extreme, 0.
                 # print client.name, client.roll_speed, client.pitch_speed, client.rot
                 updates.append({
                     "name":client.name,
