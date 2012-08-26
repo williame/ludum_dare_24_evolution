@@ -179,7 +179,7 @@ function inited() {
 		},
 		players:[],
 	};
-	for(var i=1; i<=5; i++)
+	for(var i=1; i<=6; i++)
 		player_models.push(new G3D("fighter"+i+".g3d"));
 	loadFile("image","grid.png",function(handle) {
 		grid_tex = handle;
