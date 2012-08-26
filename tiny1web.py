@@ -13,8 +13,8 @@ define("local",type=bool)
 num_models = 6
 
 ticks_per_sec = 8
-base_speed = .003
-base_max = .2
+base_speed = .0015
+base_max = .08
 roll_speed = base_speed
 max_roll_speed = base_max
 pitch_speed = base_speed
@@ -132,7 +132,7 @@ class Game:
                 move = euclid.Vector3(move.x,move.y,move.z).normalized() * client.speed
                 client.pos += move
                 # are we out-of-bounds?
-                ### ideally bounce etc, but for now we'll just stop you dead
+                ### ideally bounce etc, but for now we'll just slide along it
                 extreme = .85
                 if client.pos.x < -extreme: client.pos.x = -extreme
                 if client.pos.x >  extreme: client.pos.x =  extreme
