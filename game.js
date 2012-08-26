@@ -247,7 +247,7 @@ function render() {
 		mvMatrix = mat4_multiply(quat_to_mat4(quat_inverse(player.rot)),mvMatrix);
 		mvMatrix = mat4_multiply(mat4_translation(player.pos),mvMatrix);
 		if(player.name == game.player) {
-			mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
+			mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw*0.5)));
 		}
 		mvMatrix = mat4_multiply(camMatrix, mvMatrix);
 		player.model.draw(0,pMatrix,mvMatrix,mat4_inverse(mat4_transpose(mvMatrix)));
@@ -377,7 +377,17 @@ function onKeyDown(evt,keys) {
 			key = 38; down = !down; feedback = -feedback;
 		}
 		game.attitude.roll = down? feedback: 0;
-	} else if(key!=83 && key!=87) {
+	} else if(key==65) { // A
+		if(keys[68]) {
+			key = 68; down = !down; feedback = -feedback;
+		}
+		game.attitude.yaw = down? -feedback: 0;
+	} else if(key==68) { // D
+		if(keys[65]) {
+			key = 65; down = !down; feedback = -feedback;
+		}
+		game.attitude.yaw = down? feedback: 0;
+	} else if(key!=83 && key!=87) { // W, S
 		console.log("ignoring",evt.type,evt.which);
 		return;
 	}

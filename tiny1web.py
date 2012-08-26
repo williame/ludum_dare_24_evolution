@@ -19,6 +19,8 @@ roll_speed = base_speed
 max_roll_speed = base_max
 pitch_speed = base_speed
 max_pitch_speed = base_max
+yaw_speed = base_speed
+max_yaw_speed = base_max
 speed = base_speed
 max_speed = base_max
 
@@ -117,8 +119,15 @@ class Game:
                 if 38 not in client.keys and 40 not in client.keys:
                     client.pitch_speed *= .9
                 if math.fabs(client.pitch_speed) < 0.001: client.pitch_speed = 0
+                # yaw
+                if 65 in client.keys: client.yaw_speed += yaw_speed
+                if 68 in client.keys: client.yaw_speed -= yaw_speed
+                client.yaw_speed = max(-max_yaw_speed,min(max_yaw_speed,client.yaw_speed))
+                if 65 not in client.keys and 68 not in client.keys:
+                    client.yaw_speed *= .9
+                if math.fabs(client.yaw_speed) < 0.001: client.yaw_speed = 0
                 # apply
-                client.rot *= euclid.Quaternion().rotate_euler(0.,client.roll_speed,client.pitch_speed)
+                client.rot *= euclid.Quaternion().rotate_euler(client.yaw_speed,client.roll_speed,client.pitch_speed)
                 client.rot.normalize()
                 # speed
                 if 83 in client.keys: client.speed -= speed
@@ -175,7 +184,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.pos = euclid.Vector3(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5))
         self.rot = euclid.Quaternion() #.rotate_euler(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5)).normalized()
         self.speed = 0
-        self.roll_speed = self.pitch_speed = 0
+        self.roll_speed = self.pitch_speed = self.yaw_speed = 0
         self.game.add_client(self)
         print self.name,"joined;",len(self.game.clients),"players"
     def on_message(self,message):
@@ -196,7 +205,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
                 assert isinstance(message["key"]["type"],basestring)
                 assert message["key"]["type"] in ("keydown","keyup")
                 assert isinstance(message["key"]["value"],int)
-                assert message["key"]["value"] in (37,38,39,40,83,87)
+                assert message["key"]["value"] in (37,38,39,40,65,68,83,87)
                 if message["key"]["type"] == "keydown":
                     self.keys.add(message["key"]["value"])
                 else:
