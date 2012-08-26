@@ -207,7 +207,7 @@ function render() {
 		us = null;
 	if(game.welcomed) {
 		var us = game.players[game.player],
-			thirdPerson = [0,-.2,-.4];
+			thirdPerson = [0,-.02,-.04];
 		camMatrix = mat4_multiply(mat4_translation(vec3_neg(us.pos)),camMatrix);
 		camMatrix = mat4_multiply(quat_to_mat4(us.rot),camMatrix);
 		camMatrix = mat4_multiply(mat4_translation(thirdPerson),camMatrix);
@@ -242,10 +242,11 @@ function render() {
 	if(!game.welcomed) return;
 	for(var player in game.players) {
 		player = game.players[player];
-		var 	mvMatrix = camMatrix;
-		mvMatrix = mat4_multiply(mat4_translation(vec3_sub(player.pos,us.pos)),mvMatrix);
-		mvMatrix = mat4_multiply(mat4_scale(0.004),mvMatrix);
+		var mvMatrix = mat4_identity();
+		mvMatrix = mat4_multiply(mat4_scale(0.003),mvMatrix);
 		mvMatrix = mat4_multiply(quat_to_mat4(quat_inverse(player.rot)),mvMatrix);
+		mvMatrix = mat4_multiply(mat4_translation(player.pos),mvMatrix);
+		mvMatrix = mat4_multiply(camMatrix, mvMatrix);
 		if(player.name == game.player) {
 			//mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
 		}
