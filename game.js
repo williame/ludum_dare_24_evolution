@@ -8,7 +8,8 @@ var std_msg = {
 	no_players: 5,
 };
 
-var grid, grid_program, grid_data, grid_sides = [];
+var grid, grid_program, grid_data, grid_tex,
+	grid_sides = [[1,.5,.5],[.5,1,.5],[.5,.5,1],[1,1,.5],[.5,1,1],[1,.5,1]];
 
 var player_models = [];
 
@@ -178,21 +179,14 @@ function inited() {
 		},
 		players:[],
 	};
-	var loadGrid = function(handle) {
-		grid_sides.push(handle);
+	loadFile("image","grid.png",function(handle) {
+		grid_tex = handle;
 		gl.bindTexture(gl.TEXTURE_2D,handle);
 		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
 		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
 		gl.bindTexture(gl.TEXTURE_2D,null);
-		if(grid_sides.length == 6)
-			initGrid(64);
-	};
-	loadFile("image","grid_blue.png",loadGrid);
-	loadFile("image","grid_green.png",loadGrid);
-	loadFile("image","grid_pink.png",loadGrid);
-	loadFile("image","grid_purple.png",loadGrid);
-	loadFile("image","grid_red.png",loadGrid);
-	loadFile("image","grid_yellow.png",loadGrid);
+		initGrid(64);
+	});
 	for(var i=0; i<6; i++)
 		player_models.push(new G3D("fighter"+(i+1)+".g3d"));
 }
@@ -225,6 +219,7 @@ function render() {
 		gl.uniformMatrix4fv(grid_program.mvMatrix,false,camMatrix);
 		gl.uniformMatrix4fv(grid_program.nMatrix,false,mat4_inverse(mat4_transpose(camMatrix)));
 		gl.uniform1i(grid_program.texture,0);
+		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
 		gl.bindBuffer(gl.ARRAY_BUFFER,grid);
 		gl.enableVertexAttribArray(grid_program.vertex);
 		gl.vertexAttribPointer(grid_program.vertex,3,gl.FLOAT,false,4*(3+3+2),0);
@@ -233,13 +228,14 @@ function render() {
 		gl.enableVertexAttribArray(grid_program.texCoord);
 		gl.vertexAttribPointer(grid_program.texCoord,2,gl.FLOAT,false,4*(3+3+2),4*(3+3));
 		for(var side=0; side<6; side++) {
-			gl.bindTexture(gl.TEXTURE_2D,grid_sides[side]);
+			gl.uniform4f(grid_program.colour,grid_sides[side][0],grid_sides[side][1],grid_sides[side][2],1);
 			gl.drawArrays(gl.TRIANGLES,side*6,6);
 		}
 		gl.disableVertexAttribArray(grid_program.texCoord);
 		gl.disableVertexAttribArray(grid_program.normal);
 		gl.disableVertexAttribArray(grid_program.vertex);
 		gl.bindBuffer(gl.ARRAY_BUFFER,null);
+		gl.bindTexture(gl.TEXTURE_2D,null);
 		gl.useProgram(null);
 	}
 	if(!game.welcomed) return;
@@ -320,7 +316,6 @@ function initGrid(sz) {
 			"attribute vec3 vertex;\n"+
 			"attribute vec3 normal;\n"+
 			"attribute vec2 texCoord;\n"+
-			"uniform float lerp;\n"+
 			"uniform mat4 mvMatrix, pMatrix, nMatrix;\n"+
 			"void main() {\n"+
 			"	texel = vec2(texCoord.x,texCoord.y);\n"+
@@ -336,9 +331,9 @@ function initGrid(sz) {
 			"varying vec3 lighting;\n"+
 			"varying vec2 texel;\n"+
 			"uniform sampler2D texture;\n"+
-			"uniform vec4 teamColour;\n"+
+			"uniform vec4 colour;\n"+
 			"void main() {\n"+
-			"	vec4 tex = texture2D(texture,texel);\n"+
+			"	vec4 tex = texture2D(texture,texel) * colour;\n"+
 			"	gl_FragColor = vec4(tex.rgb*lighting,tex.a);\n"+
 			"}\n");
 		grid_program.vertex = gl.getAttribLocation(grid_program,"vertex");
@@ -348,6 +343,7 @@ function initGrid(sz) {
 		grid_program.pMatrix = gl.getUniformLocation(grid_program,"pMatrix");
 		grid_program.nMatrix = gl.getUniformLocation(grid_program,"nMatrix");
 		grid_program.texture = gl.getUniformLocation(grid_program,"texture");
+		grid_program.colour = gl.getUniformLocation(grid_program,"colour");
 	}
 }
 
