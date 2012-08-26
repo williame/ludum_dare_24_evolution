@@ -121,6 +121,13 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
     	    return False
     def open(self):
         self.closed = False
+        self.origin = self.request.headers.get("origin","")
+        self.userAgent = self.request.headers.get("user-agent")
+        print self.origin, self.userAgent
+        if not self.origin.startswith("http://localhost:") and not \
+            self.origin.startswith("http://williame.github.com/"):
+            self.write_message('{"chat":[{"Will":"if you fork the code, you need to run your own server!"}]}');
+            self.close()
         self.lastMessage = time.time()
         self.keys = set()
         self.pos = euclid.Vector3(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5))

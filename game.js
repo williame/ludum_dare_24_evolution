@@ -31,6 +31,10 @@ function gameHandler(evt) {
 			ws.error("bad ping; expected "+ws.ping_value+", got "+data.pong);
 		else
 			ws.ping_value = 0;
+	} else if(data.chat) {
+		for(var chat in data.chat)
+			for(var player in data.chat[chat])
+				addMessage(5,player,data.chat[chat][player]);
 	} else if(data.welcome) {
 		game.welcomed = true;
 		game.player = data.welcome.name;
