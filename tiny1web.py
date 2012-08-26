@@ -109,23 +109,28 @@ class Game:
                 client.roll_speed = max(-max_roll_speed,min(max_roll_speed,client.roll_speed))
                 if 37 not in client.keys and 39 not in client.keys:
                     client.roll_speed *= .9
+                if math.fabs(client.roll_speed) < 0.001: client.roll_speed = 0
                 # pitch
                 if 38 in client.keys: client.pitch_speed += pitch_speed
                 if 40 in client.keys: client.pitch_speed -= pitch_speed
                 client.pitch_speed = max(-max_pitch_speed,min(max_pitch_speed,client.pitch_speed))
                 if 38 not in client.keys and 40 not in client.keys:
                     client.pitch_speed *= .9
+                if math.fabs(client.pitch_speed) < 0.001: client.pitch_speed = 0
                 # apply
                 client.rot *= euclid.Quaternion().rotate_euler(0.,client.roll_speed,client.pitch_speed)
+                client.rot.normalize()
                 # speed
                 if 83 in client.keys: client.speed -= speed
                 if 87 in client.keys: client.speed += speed
                 client.speed = max(0.,min(max_speed,client.speed)) # no going backwards
                 if 83 not in client.keys and 87 not in client.keys:
                     client.speed *= .9
-                if client.speed:
-                    move = client.rot.transform(euclid.Vector3(0.,0.,-1)) * client.speed
-                    client.pos += move
+                if math.fabs(client.speed) < 0.001: client.speed = 0
+                forward = euclid.Quaternion(0.,0.,0.,-1.)
+                move = ((client.rot * forward) * client.rot.conjugated())
+                move = euclid.Vector3(move.x,move.y,move.z).normalized() * client.speed
+                client.pos += move
                 # are we out-of-bounds?
                 ### ideally bounce etc, but for now we'll just stop you dead
                 extreme = .85
@@ -135,7 +140,7 @@ class Game:
                 if client.pos.y >  extreme: client.pos.y, client.speed =  extreme, 0.
                 if client.pos.z < -extreme: client.pos.z, client.speed = -extreme, 0.
                 if client.pos.z >  extreme: client.pos.z, client.speed =  extreme, 0.
-                # print client.name, client.roll_speed, client.pitch_speed, client.rot
+                #print client.name, client.keys, client.roll_speed, client.pitch_speed, client.speed, client.rot, client.pos, move
                 updates.append({
                     "name":client.name,
                     "pos":(client.pos.x,client.pos.y,client.pos.z),

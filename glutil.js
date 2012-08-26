@@ -137,11 +137,11 @@ function createLookAt(eye,centre,up) {
         	-(x0*eye[0] + x1*eye[1] + x2*eye[2]), -(y0*eye[0] + y1*eye[1] + y2*eye[2]), -(z0*eye[0] + z1*eye[1] + z2*eye[2]), 1];
 }
 
-function mat4_translation(x,y,z) {
+function mat4_translation(v) {
 	return [1,0,0,0,
 		0,1,0,0,
 		0,0,1,0,
-		x,y,z,1];
+		v[0],v[1],v[2],1];
 }
 
 function mat4_scale(factor) {
