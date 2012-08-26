@@ -243,13 +243,13 @@ function render() {
 	for(var player in game.players) {
 		player = game.players[player];
 		var mvMatrix = mat4_identity();
-		mvMatrix = mat4_multiply(mat4_scale(0.003),mvMatrix);
+		mvMatrix = mat4_multiply(mat4_scale(0.004),mvMatrix);
 		mvMatrix = mat4_multiply(quat_to_mat4(quat_inverse(player.rot)),mvMatrix);
 		mvMatrix = mat4_multiply(mat4_translation(player.pos),mvMatrix);
-		mvMatrix = mat4_multiply(camMatrix, mvMatrix);
 		if(player.name == game.player) {
-			//mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
+			mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
 		}
+		mvMatrix = mat4_multiply(camMatrix, mvMatrix);
 		player.model.draw(0,pMatrix,mvMatrix,mat4_inverse(mat4_transpose(mvMatrix)));
 	}
 	/*
