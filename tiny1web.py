@@ -10,6 +10,8 @@ define("branch",default="master")
 define("access",type=str,multiple=True)
 define("local",type=bool)
 
+num_models = 6
+
 roll_speed = .02
 max_roll_speed = .5
 pitch_speed = .02
@@ -33,10 +35,12 @@ class Game:
             self.ticker.start()
         client.name = "player%d"%self.seq
         client.time = self.tick
+        client.model = random.randint(0,num_models-1)
         self.seq += 1
         message = json.dumps({
             "joining":{
                 "name":client.name,
+                "model":client.model,
                 "time":client.time,
                 "pos":(client.pos.x,client.pos.y,client.pos.z),
                 "rot":(client.rot.x,client.rot.y,client.rot.z,client.rot.w),
@@ -54,6 +58,7 @@ class Game:
                 "time_now":self.now()*1000,
                 "players":[{
                     "name":c.name,
+                    "model":c.model,
                     "time":c.time,
                     "pos":(c.pos.x,c.pos.y,c.pos.z),
                     "rot":(c.rot.x,c.rot.y,c.rot.z,c.rot.w),

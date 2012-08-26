@@ -10,8 +10,6 @@ var std_msg = {
 
 var grid, grid_program, grid_tex, grid_data, player_models = [];
 
-function player_model() { return player_models[Math.floor(Math.random()*player_models.length)]; }
-
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
 	ws.last_message = now();
@@ -48,12 +46,12 @@ function gameHandler(evt) {
 			player = data.welcome.players[player];
 			game.players[player.name] = {
 				name:player.name,
-				queue:[],
 				time:player.time,
 				pos:player.pos,
 				rot:player.rot,
 				speed:player.speed,
-				model:player_model(), };
+				model:player_models[player.model],
+			};
 			for(var key in player.keys)
 				game.players[player.name].keys[key] = true;
 			if(player.name == game.player) {
@@ -76,12 +74,12 @@ function gameHandler(evt) {
 			game.num_players++;
 			game.players[data.joining.name] = { 
 				name:data.joining.name,
-				queue:[],
 				time:data.joining.time,
 				pos:data.joining.pos,
 				rot:data.joining.rot,
 				speed:data.joining.speed,
-				model:player_model(), };
+				model:player_models[data.joining.model],
+			};
 			addMessage(3,null,data.joining+" joins the game");
 		}
 	} else if(data.leaving) {
@@ -183,8 +181,8 @@ function inited() {
 		},
 		players:[],
 	};
-	for(var i=1; i<=6; i++)
-		player_models.push(new G3D("fighter"+i+".g3d"));
+	for(var i=0; i<6; i++)
+		player_models.push(new G3D("fighter"+(i+1)+".g3d"));
 	loadFile("image","grid.png",function(handle) {
 		grid_tex = handle;
 		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
@@ -214,20 +212,19 @@ function render() {
 		game.speed = player.speed;
 	}
 	// draw it
-	var	pMatrix = createPerspective(90.0,canvas.width/canvas.height,0.1,1000),
+	var	pMatrix = createPerspective(24.0,canvas.width/canvas.height,0.01,10),
 		mvMatrix = mat4_identity();
 	if(game.welcomed)
 		mvMatrix = mat4_multiply(quat_to_mat4(game.rot),
 			mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]));
 	mvMatrix = mat4_multiply(mat4_translation(0,-0.2,-0.2),mvMatrix);
-	var nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
 	if(grid) {
 		gl.enable(gl.CULL_FACE);
 		gl.frontFace(gl.CW);
 		gl.useProgram(grid_program);
 		gl.uniformMatrix4fv(grid_program.pMatrix,false,pMatrix);
 		gl.uniformMatrix4fv(grid_program.mvMatrix,false,mvMatrix);
-		gl.uniformMatrix4fv(grid_program.nMatrix,false,nMatrix);
+		gl.uniformMatrix4fv(grid_program.nMatrix,false,mat4_inverse(mat4_transpose(mvMatrix)));
 		gl.bindTexture(gl.TEXTURE_2D,grid_tex);
 		gl.uniform1i(grid_program.texture,0);
 		gl.bindBuffer(gl.ARRAY_BUFFER,grid);
@@ -245,13 +242,21 @@ function render() {
 		gl.useProgram(null);
 	}
 	if(!game.welcomed) return;
+	for(var player in game.players) {
+		if(player == game.player) continue;
+		player = game.players[player];
+		var localMatrix = mvMatrix;
+		localMatrix = mat4_multiply(localMatrix,mat4_translation(player.pos[0],player.pos[1],player.pos[2]));
+		localMatrix = mat4_multiply(localMatrix,mat4_scale(0.05));
+		localMatrix = mat4_multiply(localMatrix,quat_to_mat4(player.rot));
+		player.model.draw(0,pMatrix,localMatrix,mat4_inverse(mat4_transpose(localMatrix)));
+	}
 	mvMatrix = mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]);
 	mvMatrix = mat4_multiply(mat4_scale(0.05),mvMatrix);
 	mvMatrix = mat4_multiply(mat4_translation(0,-0.2,-0.35),mvMatrix);
 	mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
-	nMatrix = mat4_inverse(mat4_transpose(mvMatrix));
 	if(game.welcomed)
-		game.players[game.player].model.draw((now()/1000)%1,pMatrix,mvMatrix,nMatrix);
+		game.players[game.player].model.draw(0,pMatrix,mvMatrix,mat4_inverse(mat4_transpose(mvMatrix)));
 }
 
 function initGrid(sz) {
