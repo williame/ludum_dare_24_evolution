@@ -123,9 +123,11 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.closed = False
         self.origin = self.request.headers.get("origin","")
         self.userAgent = self.request.headers.get("user-agent")
-        print self.origin, self.userAgent
-        if not self.origin.startswith("http://localhost:") and not \
-            self.origin.startswith("http://williame.github.com/"):
+        print "connection",self.request.remote_ip, self.origin, self.userAgent
+        if not self.origin.startswith("http://williame.github.com/") and not \
+            self.origin.startswith("http://31.192.226.244:") and not \
+            self.origin.startswith("http://localhost:"):
+            print "kicking out bad origin"
             self.write_message('{"chat":[{"Will":"if you fork the code, you need to run your own server!"}]}');
             self.close()
         self.lastMessage = time.time()
