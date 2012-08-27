@@ -21,11 +21,12 @@ pitch_speed = base_speed
 max_pitch_speed = base_max
 yaw_speed = base_speed
 max_yaw_speed = base_max
-speed = base_speed
-max_speed = base_max
-shot_length = .1
+speed = base_speed/2
+max_speed = base_max/2
+shot_length = .05
 max_shot_age = 5
-player_size = 0.05
+player_size = 0.03
+epslion = 0.0001
 
 forward = euclid.Quaternion(0.,0.,0.,-1.)
 
@@ -111,13 +112,14 @@ class Game:
         client.write_message(json.dumps(message))
     def remove_client(self,client,reason):
         if client in self.clients:
-            self.clients.remove(client)
             message = json.dumps({"leaving":client.name,"reason":reason})
+            for c in self.clients:
+                c.write_message(message)
+            self.clients.remove(client)
             if not self.clients:
                 self.ticker.stop() 
-            else:
-                for competitor in self.clients:
-                    competitor.write_message(message)
+        if hasattr(client,"name"):
+            print client.name,"left: %s;"%reason,len(self.clients),"players"
         if hasattr(client,"ws_connection") and client.ws_connection:
             client.close()
     def send_cmd(self,cmd):
@@ -150,21 +152,21 @@ class Game:
                 client.roll_speed = max(-max_roll_speed,min(max_roll_speed,client.roll_speed))
                 if 37 not in client.keys and 39 not in client.keys:
                     client.roll_speed *= .9
-                if math.fabs(client.roll_speed) < 0.001: client.roll_speed = 0
+                if math.fabs(client.roll_speed) < epslion: client.roll_speed = 0
                 # pitch
                 if 38 in client.keys: client.pitch_speed += pitch_speed
                 if 40 in client.keys: client.pitch_speed -= pitch_speed
                 client.pitch_speed = max(-max_pitch_speed,min(max_pitch_speed,client.pitch_speed))
                 if 38 not in client.keys and 40 not in client.keys:
                     client.pitch_speed *= .9
-                if math.fabs(client.pitch_speed) < 0.001: client.pitch_speed = 0
+                if math.fabs(client.pitch_speed) < epslion: client.pitch_speed = 0
                 # yaw
                 if 65 in client.keys: client.yaw_speed += yaw_speed
                 if 68 in client.keys: client.yaw_speed -= yaw_speed
                 client.yaw_speed = max(-max_yaw_speed,min(max_yaw_speed,client.yaw_speed))
                 if 65 not in client.keys and 68 not in client.keys:
                     client.yaw_speed *= .9
-                if math.fabs(client.yaw_speed) < 0.001: client.yaw_speed = 0
+                if math.fabs(client.yaw_speed) < epslion: client.yaw_speed = 0
                 # apply
                 client.rot *= euclid.Quaternion().rotate_euler(client.yaw_speed,client.roll_speed,client.pitch_speed)
                 client.rot.normalize()
@@ -174,7 +176,7 @@ class Game:
                 client.speed = max(0.,min(max_speed,client.speed)) # no going backwards
                 if 83 not in client.keys and 87 not in client.keys:
                     client.speed *= .9
-                if math.fabs(client.speed) < 0.001: client.speed = 0            
+                if math.fabs(client.speed) < epslion: client.speed = 0            
                 move = ((client.rot * forward) * client.rot.conjugated())
                 move = euclid.Vector3(move.x,move.y,move.z).normalized() * client.speed
                 client.pos += move
@@ -284,8 +286,6 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.closed = True
         def do_close():
             self.game.remove_client(self,"went away")
-            if hasattr(self,"name"):
-                print self.name,"left;",len(self.game.clients),"players"
         io_loop.add_callback(do_close)
 
 

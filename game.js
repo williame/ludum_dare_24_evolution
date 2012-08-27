@@ -6,6 +6,7 @@ var std_msg = {
 	disconnected: 3,
 	hello: 4,
 	no_players: 5,
+	died: 6,
 };
 
 var grid, grid_program, grid_data, grid_tex,
@@ -47,7 +48,7 @@ function gameHandler(evt) {
 	} else if(data.chat) {
 		for(var chat in data.chat)
 			for(var player in data.chat[chat])
-				addMessage(5,player,data.chat[chat][player]);
+				addMessage(6,player,data.chat[chat][player]);
 	} else if(data.welcome) {
 		game.welcomed = true;
 		game.player = data.welcome.name;
@@ -76,7 +77,7 @@ function gameHandler(evt) {
 			}
 		}
 		if(other_players.length)
-			addMessage(5,null,"playing against: "+other_players);
+			addMessage(6,null,"playing against: "+other_players);
 	} else if(data.joining) {
 		if(!(data.joining in game.players)) {
 			game.num_players++;
@@ -88,17 +89,17 @@ function gameHandler(evt) {
 				speed:data.joining.speed,
 				model:player_models[data.joining.model],
 			};
-			addMessage(3,null,data.joining.name+" joins the game");
+			addMessage(6,null,data.joining.name+" joins the game");
 		}
 	} else if(data.leaving) {
 		if(data.leaving in game.players) {
 			if(data.leaving == game.player) {
-				addMessage(null,null,""+game.player+", you died!",std_msg.hello);
+				addMessage(null,null,""+game.player+", you died!",std_msg.died);
 				ws.close();
 				return;
 			} else {
 				game.num_players--;
-				addMessage(3,null,data.leaving+" leaves the game: "+data.reason);
+				addMessage(6,null,data.leaving+" leaves the game: "+data.reason);
 				delete game.players[data.leaving];
 			}
 		}
@@ -172,7 +173,7 @@ function start() {
 	};
 	ws.error = function(e) {
 		console.log("websocket",ws_path,"encountered an error:",e);
-		addMessage(3,null,"encountered a network problem: "+e);
+		addMessage(6,null,"encountered a network problem: "+e);
 		game = null;
 		ws.close();
 	};
