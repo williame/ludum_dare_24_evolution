@@ -12,7 +12,7 @@ var std_msg = {
 var grid, grid_program, grid_data, grid_tex,
 	grid_sides = [[1,.5,.5],[.5,1,.5],[.5,.5,1],[1,1,.5],[.5,1,1],[1,.5,1]];
 var player_models = [];
-
+var died_splash;
 var particle, particle_program;
 
 var sounds = {
@@ -107,6 +107,8 @@ function gameHandler(evt) {
 				addMessage(null,null,""+game.player+", you died!",std_msg.died);
 				randomSound(sounds.losing);
 				ws.close();
+				if(died_splash)
+					died_splash.show();
 				return;
 			} else {
 				game.num_players--;
@@ -241,6 +243,16 @@ function inited() {
 	});
 	for(var i=0; i<8; i++)
 		player_models.push(new G3D("fighter"+(i+1)+".g3d"));
+	loadFile("image","splash_lose.jpg",function(handle) {
+			died_splash = UIWindow(false,UIComponent()); // not shown yet
+			died_splash.ctrl.draw = function(ctx) {
+				var 	x1 = handle.width<ctx.width? -(handle.width/ctx.width)/2: 0,
+					y1 = handle.height<ctx.height? -(handle.height/ctx.height)/2: 0,
+					x2 = 1-x1,
+					y2 = 1-y1;
+				ctx.drawRect(handle,[1,1,1,1],0,0,ctx.width,ctx.height,x1,y1,x2,y2);
+			};
+	});
 	particle_program = createProgram(
 		"precision mediump float;\n"+
 		"varying vec2 texel;\n"+
