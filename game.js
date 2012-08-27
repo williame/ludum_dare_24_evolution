@@ -16,8 +16,14 @@ var player_models = [];
 var particle, particle_program;
 
 var sounds = {
-	shot: [],
+	winning: [],
+	losing: [],
 };
+
+function randomSound(list) {
+	if(list.length)
+		playAudio(list[Math.floor(Math.random()*list.length)]);
+}
 
 var shots, shots_len = 0;
 
@@ -36,7 +42,7 @@ function gameHandler(evt) {
 		var shots_data = [];
 		for(var shot in data.shots) {
 			shot = data.shots[shot];
-			shots_data = shots_data.concat(shot.pos,[0,0],vec3_add(shot.pos,shot.vec),[1,1]);
+			shots_data = shots_data.concat(shot.pos,[.25,.25],vec3_add(shot.pos,shot.vec),[.75,.75]);
 		}
 		if(shots_data.length) {
 			gl.bindBuffer(gl.ARRAY_BUFFER,shots);
@@ -99,11 +105,14 @@ function gameHandler(evt) {
 		if(data.leaving in game.players) {
 			if(data.leaving == game.player) {
 				addMessage(null,null,""+game.player+", you died!",std_msg.died);
+				randomSound(sounds.losing);
 				ws.close();
 				return;
 			} else {
 				game.num_players--;
 				addMessage(6,null,data.leaving+" leaves the game: "+data.reason);
+				if(data.killed_by == game.player)
+					randomSound(sounds.winning);
 				delete game.players[data.leaving];
 			}
 		}
@@ -158,7 +167,7 @@ function start() {
 	addMessage(null,null,"connecting...",std_msg.connecting);
 	var ws_path = window.location.href;
 	if(ws_path.indexOf("localhost") != -1) // if running locally, connect locally
-		ws_path = ws_path.split("/")[2]
+		ws_path = ws_path.split("/")[2];
 	else
 		ws_path = "31.192.226.244:4874"; // my private server; if you fork, you have to change this
 	ws_path = "ws://"+ws_path+"/ws-ld24";
@@ -259,6 +268,10 @@ function inited() {
 	if(audio) {
 		loadFile("audio","voice_intro-darwin-quote.ogg",playAudio);
 		loadFile("audio","sound_fire.ogg",function(sound) { sounds.fire = sound; });
+		for(var i=0; i<6; i++)
+			loadFile("audio","voice_winning_"+(i+1)+".ogg",function(sound) { sounds.winning.push(sound); });
+		for(var i=0; i<8; i++)
+			loadFile("audio","voice_losing"+(i+1)+".ogg",function(sound) { sounds.losing.push(sound); });
 	} else
 		addMessage(10,null,"sorry, your browser doesn't support the experimental Web Audio API, so there's no sounds");
 }
@@ -330,7 +343,7 @@ function render() {
 		gl.useProgram(particle_program);
 		gl.uniformMatrix4fv(particle_program.pMatrix,false,pMatrix);
 		gl.uniformMatrix4fv(particle_program.mvMatrix,false,camMatrix);
-		gl.uniform4f(particle_program.colour,1,1,1,1);
+		gl.uniform4f(particle_program.colour,0.7,0.7,1,1);
 		gl.uniform1i(particle_program.texture,0);
 		gl.bindTexture(gl.TEXTURE_2D,particle);
 		gl.bindBuffer(gl.ARRAY_BUFFER,shots);

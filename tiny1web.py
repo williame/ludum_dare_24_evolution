@@ -14,7 +14,7 @@ num_models = 6
 
 ticks_per_sec = 8
 base_speed = .0015
-base_max = .08
+base_max = .05
 roll_speed = base_speed
 max_roll_speed = base_max
 pitch_speed = base_speed
@@ -23,9 +23,9 @@ yaw_speed = base_speed
 max_yaw_speed = base_max
 speed = base_speed/2
 max_speed = base_max/2
-shot_length = .05
+shot_length = .03
 max_shot_age = 5
-player_size = 0.03
+player_size = 0.025
 epslion = 0.0001
 
 forward = euclid.Quaternion(0.,0.,0.,-1.)
@@ -56,6 +56,7 @@ class Shot:
         end = self.pos+self.vec
         for client in clients:
             d = line_to_point(client.pos,self.pos,end)
+            print "shoot",self.client.name,client.name,d
             if d < distance and d <= player_size:
                 nearest, distance = client, d
         self.pos = end
@@ -112,7 +113,7 @@ class Game:
         client.write_message(json.dumps(message))
     def remove_client(self,client,reason):
         if client in self.clients:
-            message = json.dumps({"leaving":client.name,"reason":reason})
+            message = json.dumps({"leaving":client.name,"reason":reason,"killed_by":client.killed_by})
             for c in self.clients:
                 c.write_message(message)
             self.clients.remove(client)
@@ -201,6 +202,7 @@ class Game:
                 hit,distance = shot.tick(self.clients)
                 if hit:
                     deaths.add(hit)
+                    hit.killed_by = shot.client.name
                 if hit or not shot.age:
                     self.shots.remove(shot)
             for client in self.clients:
@@ -220,7 +222,7 @@ class Game:
                         } for shot in self.shots],
                 }))
             for dead in deaths:
-                self.remove_client(dead,"died")
+                self.remove_client(dead,"died, shot by %s"%dead.killed_by)
             self.tick += self.tick_length
 
 class LD24WebSocket(tornado.websocket.WebSocketHandler):
@@ -246,6 +248,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.speed = 0
         self.roll_speed = self.pitch_speed = self.yaw_speed = 0
         self.firing = 0
+        self.killed_by = None
         self.game.add_client(self)
         print self.name,"joined;",len(self.game.clients),"players"
     def on_message(self,message):
