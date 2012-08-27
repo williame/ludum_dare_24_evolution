@@ -211,11 +211,8 @@ class Game:
                         "tick":self.tick,
                         "updates":updates,
                         "shots":[{
-                                "id":shot.seq,
-                                "name":shot.client.name,
                                 "pos":(shot.pos.x,shot.pos.y,shot.pos.z),
                                 "vec":(shot.vec.x,shot.vec.y,shot.vec.z),
-                                "age":shot.age,
                         } for shot in self.shots],
                 }))
             for dead in deaths:
