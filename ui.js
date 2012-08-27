@@ -249,60 +249,71 @@ function UIContext() {
 	}
 };
 
-function UIWindow(modal,tree) {
+function UIWindow(modal,ctrl) {
 	if(this == window)
-		return new UIWindow(modal,tree);
-	this.modal = modal;
-	this.tree = tree;
-	this.children = [tree];
-	this.ctx = new UIContext();
-	this.mvp = null;
-	this.isDirty = true;
-	this.dirty = function() { this.isDirty = true; }
-	this.draw = function(canvas) {
-		if(this.ctx.width != canvas.offsetWidth || this.ctx.height != canvas.offsetHeight || !this.mvp) {
-			this.ctx.width = canvas.offsetWidth;
-			this.ctx.height = canvas.offsetHeight;
-			this.isDirty = true;
-			this.mvp = new Float32Array(createOrtho2D(0,this.ctx.width,this.ctx.height,0));
+		return new UIWindow(modal,ctrl);
+	var win = this;
+	win.modal = modal;
+	win.ctrl = null;
+	win.ctx = new UIContext();
+	win.mvp = null;
+	win.isDirty = true;
+	win.dirty = function() { win.isDirty = true; }
+	win.draw = function(canvas) {
+		if(win.ctx.width != canvas.offsetWidth || win.ctx.height != canvas.offsetHeight || !win.mvp) {
+			win.ctx.width = canvas.offsetWidth;
+			win.ctx.height = canvas.offsetHeight;
+			win.isDirty = true;
+			win.mvp = new Float32Array(createOrtho2D(0,win.ctx.width,win.ctx.height,0));
 		}
-		if(this.isDirty) {
-			this.ctx.clear();
-			if(this.modal)
-				this.ctx.fillRect(UIDefaults.modalClear,0,0,this.ctx.width,this.ctx.height);
+		if(win.isDirty) {
+			win.ctx.clear();
+			if(win.modal)
+				win.ctx.fillRect(UIDefaults.modalClear,0,0,win.ctx.width,win.ctx.height);
 			var draw = function(node,ctx) {
 				node.isDirty = false;
 				node.draw(ctx);
 				for(var child in node.children)
 					draw(node.children[child],ctx);
 			};
-			this.isDirty = false;
-			draw(tree,this.ctx);
+			win.isDirty = false;
+			if(win.ctrl)
+				draw(win.ctrl,win.ctx);
 		}
-		this.ctx.draw(this.mvp);
+		win.ctx.draw(win.mvp);
 	};
-	this.hide = function() {
-		var idx = UIWindows.indexOf(this);
+	win.hide = function() {
+		var idx = UIWindows.indexOf(win);
 		if(idx != -1)
 			UIWindows.splice(idx,1);
 	};
-	this.show = function() {
-		this.hide();
-		this.layout();
-		if(this.modal)
-			UIWindows.push(this);
+	win.show = function() {
+		win.hide();
+		win.layout();
+		if(win.modal)
+			UIWindows.push(win);
 		else
-			UIWindows.unshift(this);
+			UIWindows.unshift(win);
 	};
-	this.getFont = function() { return "default" in UIFonts? UIFonts["default"]: null; };
-	this.getBgColour = function() { return UIDefaults.bgColour; };
-	this.getFgColour = function() { return UIDefaults.fgColour; };
-	this.layout = function() { this.tree.layout(); };
-	this.window = function() { return this; }
-	this.onClick = function(evt) { return this.tree.onClick(evt); }
-	tree.setParent(this);
-	tree.layout();
-	return this;
+	win.getFont = function() { return "default" in UIFonts? UIFonts["default"]: null; };
+	win.getBgColour = function() { return UIDefaults.bgColour; };
+	win.getFgColour = function() { return UIDefaults.fgColour; };
+	win.layout = function() { if(win.ctrl) win.ctrl.layout(); };
+	win.window = function() { return win; }
+	win.onClick = function(evt) { return win.ctrl? win.ctrl.onClick(evt): false; }
+	win.setCtrl = function(ctrl) {
+		win.ctrl = ctrl;
+		win.dirty();
+		if(!ctrl)
+			win.children = [];
+		else {
+			win.children = [ctrl];
+			ctrl.setParent(win);
+			ctrl.layout();
+		}
+	};
+	win.setCtrl(ctrl);
+	return win;
 };
 
 function drawUI(canvas) {
@@ -407,6 +418,15 @@ function UIComponent() {
 	ctrl.addChild = function(child) {
 		ctrl.children.push(child);
 		child.setParent(ctrl);
+		ctrl.window().layout();
+	}
+	ctrl.replaceChild = function(from,to) {
+		var i = ctrl.children.indexOf(from);
+		if(i == -1)
+			ctrl.children.push(to);
+		else
+			ctrl.children[i] = to;
+		to.setParent(ctrl);
 		ctrl.window().layout();
 	}
 	ctrl.destroy = function() {

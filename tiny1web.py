@@ -1,4 +1,4 @@
-import os, subprocess, base64, json, traceback, time, math, random
+import os, subprocess, base64, json, traceback, time, math, random, sys
 import tornado.ioloop
 import tornado.websocket
 import tornado.web
@@ -23,6 +23,43 @@ yaw_speed = base_speed
 max_yaw_speed = base_max
 speed = base_speed
 max_speed = base_max
+shot_length = .1
+max_shot_age = 5
+player_size = 0.05
+
+forward = euclid.Quaternion(0.,0.,0.,-1.)
+
+def point_distance(a,b):
+    return math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2 + (a.y-b.y)**2)
+
+def line_to_point(p,a,b): 
+    v, w = b-a, p-a
+    c1 = w.dot(v)
+    if c1<=0: return sys.maxint
+    c2 = v.dot(v)
+    if c2 <= c1: return sys.maxint
+    return point_distance(p,a + (c1/c2) * v)
+
+class Shot:
+    seq = 100
+    def __init__(self,client):
+        self.seq = Shot.seq
+        Shot.seq += 1
+        self.client = client
+        self.pos = client.pos.copy()
+        self.vec = ((client.rot * forward) * client.rot.conjugated())
+        self.vec = euclid.Vector3(self.vec.x,self.vec.y,self.vec.z).normalized() * shot_length
+        self.age = max_shot_age
+    def tick(self,clients):
+        nearest, distance = None, sys.maxint
+        end = self.pos+self.vec
+        for client in clients:
+            d = line_to_point(client.pos,self.pos,end)
+            if d < distance and d <= player_size:
+                nearest, distance = client, d
+        self.pos = end
+        self.age -= 1
+        return nearest, distance
 
 class Game:
     def __init__(self):
@@ -36,6 +73,7 @@ class Game:
             self.seq = 1
             self.start_time = time.time()
             self.tick = 0
+            self.shots = []
             self.ticker.start()
         client.name = "player%d"%self.seq
         client.time = self.tick
@@ -71,15 +109,17 @@ class Game:
             },
         }
         client.write_message(json.dumps(message))
-    def remove_client(self,client):
+    def remove_client(self,client,reason):
         if client in self.clients:
             self.clients.remove(client)
-            message = '{"leaving":"%s"}'%client.name
+            message = json.dumps({"leaving":client.name,"reason":reason})
             if not self.clients:
                 self.ticker.stop() 
             else:
                 for competitor in self.clients:
-                    competitor.write_message(message)                
+                    competitor.write_message(message)
+        if hasattr(client,"ws_connection") and client.ws_connection:
+            client.close()
     def send_cmd(self,cmd):
         cmd["time"] = math.floor(self.now()*ticks_per_sec+1/ticks_per_sec)/ticks_per_sec*1000
         cmd = json.dumps({"cmd":cmd})
@@ -99,11 +139,10 @@ class Game:
         for client in self.clients.copy():
             if client.lastMessage < stale:
                 print "timing out",client.name,client.lastMessage-time.time()
-                self.clients.remove(client)
-                client.close()
+                self.remove_client(client,"ping timeout")
         # move simulation onwards?
         while self.tick+self.tick_length <= self.now():
-            updates = []
+            updates, deaths = [], set()
             for client in self.clients:
                 # roll
                 if 37 in client.keys: client.roll_speed += roll_speed
@@ -135,8 +174,7 @@ class Game:
                 client.speed = max(0.,min(max_speed,client.speed)) # no going backwards
                 if 83 not in client.keys and 87 not in client.keys:
                     client.speed *= .9
-                if math.fabs(client.speed) < 0.001: client.speed = 0
-                forward = euclid.Quaternion(0.,0.,0.,-1.)
+                if math.fabs(client.speed) < 0.001: client.speed = 0            
                 move = ((client.rot * forward) * client.rot.conjugated())
                 move = euclid.Vector3(move.x,move.y,move.z).normalized() * client.speed
                 client.pos += move
@@ -149,7 +187,17 @@ class Game:
                 if client.pos.y >  extreme: client.pos.y =  extreme
                 if client.pos.z < -extreme: client.pos.z = -extreme
                 if client.pos.z >  extreme: client.pos.z =  extreme
+                # shooting
+                if 32 in client.keys:
+                    self.shots.append(Shot(client))
                 #print client.name, client.keys, client.roll_speed, client.pitch_speed, client.speed, client.rot, client.pos, move
+            for shot in self.shots[:]:
+                hit,distance = shot.tick(self.clients)
+                if hit:
+                    deaths.add(hit)
+                if hit or not shot.age:
+                    self.shots.remove(shot)
+            for client in self.clients:
                 updates.append({
                     "name":client.name,
                     "pos":(client.pos.x,client.pos.y,client.pos.z),
@@ -160,7 +208,16 @@ class Game:
                 client.write_message(json.dumps({
                         "tick":self.tick,
                         "updates":updates,
+                        "shots":[{
+                                "id":shot.seq,
+                                "name":shot.client.name,
+                                "pos":(shot.pos.x,shot.pos.y,shot.pos.z),
+                                "vec":(shot.vec.x,shot.vec.y,shot.vec.z),
+                                "age":shot.age,
+                        } for shot in self.shots],
                 }))
+            for dead in deaths:
+                self.remove_client(dead,"died")
             self.tick += self.tick_length
 
 class LD24WebSocket(tornado.websocket.WebSocketHandler):
@@ -205,7 +262,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
                 assert isinstance(message["key"]["type"],basestring)
                 assert message["key"]["type"] in ("keydown","keyup")
                 assert isinstance(message["key"]["value"],int)
-                assert message["key"]["value"] in (37,38,39,40,65,68,83,87)
+                assert message["key"]["value"] in (32,37,38,39,40,65,68,83,87)
                 if message["key"]["type"] == "keydown":
                     self.keys.add(message["key"]["value"])
                 else:
@@ -226,7 +283,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         if self.closed: return
         self.closed = True
         def do_close():
-            self.game.remove_client(self)
+            self.game.remove_client(self,"went away")
             if hasattr(self,"name"):
                 print self.name,"left;",len(self.game.clients),"players"
         io_loop.add_callback(do_close)

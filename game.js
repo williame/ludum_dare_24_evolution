@@ -10,15 +10,17 @@ var std_msg = {
 
 var grid, grid_program, grid_data, grid_tex,
 	grid_sides = [[1,.5,.5],[.5,1,.5],[.5,.5,1],[1,1,.5],[.5,1,1],[1,.5,1]];
-
 var player_models = [];
+
+var particle, particle_program;
+
+var shots, shots_len = 0;
 
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
 	ws.last_message = now();
-	if(data.cmd)
-		game.players[data.cmd.player].queue.push(data.cmd);
-	else if(data.updates) {
+	var old_num_players = game.num_players;
+	if(data.updates) {
 		for(var update in data.updates) {
 			update = data.updates[update];
 			var player = game.players[update.name];
@@ -26,6 +28,16 @@ function gameHandler(evt) {
 			if(update.rot) player.rot = update.rot;
 			if(update.speed) player.speed = update.speed;
 		}
+		var shots_data = [];
+		for(var shot in data.shots) {
+			shot = data.shots[shot];
+			shots_data = shots_data.concat(shot.pos,[0,0],vec3_add(shot.pos,shot.vec),[1,1]);
+		}
+		if(shots_data.length) {
+			gl.bindBuffer(gl.ARRAY_BUFFER,shots);
+			gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(shots_data),gl.STATIC_DRAW);
+		}
+		shots_len = shots_data.length;
 	}
 	else if(data.pong) {
 		if(ws.ping_value != data.pong)
@@ -43,9 +55,10 @@ function gameHandler(evt) {
 		game.start_time = now()-data.welcome.time_now;
 		game.tick = data.welcome.time_now;
 		removeMessage(std_msg.connecting);
-		addMessage(null,null,"hello "+game.player,std_msg.hello);
+		game.num_players = 0
 		var other_players = "";
 		for(var player in data.welcome.players) {
+			game.num_players++;
 			player = data.welcome.players[player];
 			game.players[player.name] = {
 				name:player.name,
@@ -64,10 +77,7 @@ function gameHandler(evt) {
 		}
 		if(other_players.length)
 			addMessage(5,null,"playing against: "+other_players);
-		else
-			addMessage(null,null,"There are no other players!  Get a friend to play NOW!",std_msg.no_players);
 	} else if(data.joining) {
-		removeMessage(std_msg.no_players);
 		if(!(data.joining in game.players)) {
 			game.num_players++;
 			game.players[data.joining.name] = { 
@@ -82,16 +92,30 @@ function gameHandler(evt) {
 		}
 	} else if(data.leaving) {
 		if(data.leaving in game.players) {
-			addMessage(3,null,data.leaving+" leaves the game");
-			delete game.players[data.leaving];
-			game.num_players--;
-		}
-		if(game.num_players == 1) {
-			removeMessage(std_msg.no_players);
-			addMessage(null,null,"There are no other players left!  Get a friend to play NOW!",std_msg.no_players);
+			if(data.leaving == game.player) {
+				addMessage(null,null,""+game.player+", you died!",std_msg.hello);
+				ws.close();
+				return;
+			} else {
+				game.num_players--;
+				addMessage(3,null,data.leaving+" leaves the game: "+data.reason);
+				delete game.players[data.leaving];
+			}
 		}
 	} else
 		console.log("ERROR unhandled message",data);
+	if(old_num_players != game.num_players) {
+		if(game.num_players == 1) {
+			addMessage(null,null,"Hello "+game.player,std_msg.hello);
+			addMessage(null,null,"There are no other players!  Get a friend to play online NOW!",std_msg.no_players);
+		} else {
+			removeMessage(std_msg.no_players);
+			if(game.num_players == 2) // poor plurals always annoy me
+				addMessage(null,null,"Hello "+game.player+", there is 1 other player",std_msg.hello);
+			else
+				addMessage(null,null,"Hello "+game.player+", there are "+(game.num_players-1)+" other players",std_msg.hello);
+		}
+	}
 }
 
 function addMessage(secs,from,text,tag) {
@@ -100,13 +124,18 @@ function addMessage(secs,from,text,tag) {
 	message.bgColour = [0.2,0.2,0.2,1];
 	message.tag = tag;
 	if(f) f.fgColour = from==game.player?[0.8,0.8,1,1]: [0.8,1,0.8,1];
-	messages.tree.addChild(message);
-	if(secs) setTimeout(function() { message.destroy(); },secs*1000);
+	var old = tag? getMessage(tag): null;
+	if(old) {
+		old.parent.replaceChild(old,message);
+		if(old.dismisser) clearTimeout(old.dismisser);
+	} else
+		messages.ctrl.addChild(message);
+	if(secs) message.dismisser = setTimeout(function() { message.destroy(); },secs*1000);
 }
 
 function getMessage(tag) {
-	for(var message in messages.tree.children) {
-		message = messages.tree.children[message];
+	for(var message in messages.ctrl.children) {
+		message = messages.ctrl.children[message];
 		if(message.tag == tag)
 			return message;
 	}
@@ -143,6 +172,7 @@ function start() {
 	};
 	ws.error = function(e) {
 		console.log("websocket",ws_path,"encountered an error:",e);
+		addMessage(3,null,"encountered a network problem: "+e);
 		game = null;
 		ws.close();
 	};
@@ -179,6 +209,7 @@ function inited() {
 		},
 		players:[],
 	};
+	shots = gl.createBuffer();
 	loadFile("image","grid.png",function(handle) {
 		grid_tex = handle;
 		gl.bindTexture(gl.TEXTURE_2D,handle);
@@ -187,13 +218,44 @@ function inited() {
 		gl.bindTexture(gl.TEXTURE_2D,null);
 		initGrid(64);
 	});
+	loadFile("image","particle.png",function(handle) {
+		particle = handle;
+		gl.bindTexture(gl.TEXTURE_2D,handle);
+		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
+		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+		gl.bindTexture(gl.TEXTURE_2D,null);
+	});
 	for(var i=0; i<6; i++)
 		player_models.push(new G3D("fighter"+(i+1)+".g3d"));
+	particle_program = createProgram(
+		"precision mediump float;\n"+
+		"varying vec2 texel;\n"+
+		"attribute vec3 vertex;\n"+
+		"attribute vec2 texCoord;\n"+
+		"uniform mat4 mvMatrix, pMatrix;\n"+
+		"void main() {\n"+
+		"	texel = vec2(texCoord.x,texCoord.y);\n"+
+		"	gl_Position = pMatrix * mvMatrix * vec4(vertex,1.0);\n"+
+		"}\n",
+		"precision mediump float;\n"+
+		"varying vec2 texel;\n"+
+		"uniform sampler2D texture;\n"+
+		"uniform vec4 colour;\n"+
+		"void main() {\n"+
+		"	vec4 tex = texture2D(texture,texel) * colour;\n"+
+		"	gl_FragColor = vec4(tex.rgb,tex.a);\n"+
+		"}\n");
+	particle_program.vertex = gl.getAttribLocation(particle_program,"vertex");
+	particle_program.texCoord = gl.getAttribLocation(particle_program,"texCoord");
+	particle_program.mvMatrix = gl.getUniformLocation(particle_program,"mvMatrix");
+	particle_program.pMatrix = gl.getUniformLocation(particle_program,"pMatrix");
+	particle_program.texture = gl.getUniformLocation(particle_program,"texture");
+	particle_program.colour = gl.getUniformLocation(particle_program,"colour");
 }
 
 function render() {
 	if(!ws && !splash.dismissed) {
-		var loaded = grid;
+		var loaded = grid && particle;
 		for(var model in player_models)
 			if(!player_models[model].ready)
 				loaded = false;
@@ -247,19 +309,32 @@ function render() {
 		mvMatrix = mat4_multiply(quat_to_mat4(quat_inverse(player.rot)),mvMatrix);
 		mvMatrix = mat4_multiply(mat4_translation(player.pos),mvMatrix);
 		if(player.name == game.player) {
+			// we show the player's pose so they feel like some feedback
 			mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw*0.5)));
 		}
 		mvMatrix = mat4_multiply(camMatrix, mvMatrix);
 		player.model.draw(0,pMatrix,mvMatrix,mat4_inverse(mat4_transpose(mvMatrix)));
 	}
-	/*
-	mvMatrix = mat4_translation(-game.pos[0],-game.pos[1],-game.pos[2]);
-	mvMatrix = mat4_multiply(mat4_scale(0.05),mvMatrix);
-	mvMatrix = mat4_multiply(mat4_translation(0,-0.2,-0.35),mvMatrix);
-	mvMatrix = mat4_multiply(mvMatrix,quat_to_mat4(quat_from_euler(game.attitude.roll,game.attitude.pitch,game.attitude.yaw)));
-	if(game.welcomed)
-		game.players[game.player].model.draw(0,pMatrix,mvMatrix,mat4_inverse(mat4_transpose(mvMatrix)));
-	*/
+	if(shots_len) {
+		gl.disable(gl.CULL_FACE);
+		gl.useProgram(particle_program);
+		gl.uniformMatrix4fv(particle_program.pMatrix,false,pMatrix);
+		gl.uniformMatrix4fv(particle_program.mvMatrix,false,camMatrix);
+		gl.uniform4f(particle_program.colour,1,1,1,1);
+		gl.uniform1i(particle_program.texture,0);
+		gl.bindTexture(gl.TEXTURE_2D,particle);
+		gl.bindBuffer(gl.ARRAY_BUFFER,shots);
+		gl.enableVertexAttribArray(particle_program.vertex);
+		gl.vertexAttribPointer(particle_program.vertex,3,gl.FLOAT,false,4*(3+2),0);
+		gl.enableVertexAttribArray(particle_program.texCoord);
+		gl.vertexAttribPointer(particle_program.texCoord,2,gl.FLOAT,false,4*(3+2),4*3);
+		gl.drawArrays(gl.LINES,0,shots_len/(3+2));
+		gl.disableVertexAttribArray(particle_program.texCoord);
+		gl.disableVertexAttribArray(particle_program.vertex);
+		gl.bindBuffer(gl.ARRAY_BUFFER,null);
+		gl.bindTexture(gl.TEXTURE_2D,null);
+		gl.useProgram(null);
+	}
 }
 
 function initGrid(sz) {
@@ -387,7 +462,7 @@ function onKeyDown(evt,keys) {
 			key = 65; down = !down; feedback = -feedback;
 		}
 		game.attitude.yaw = down? feedback: 0;
-	} else if(key!=83 && key!=87) { // W, S
+	} else if(key!=83 && key!=87 && key!=32) { // W, S, [space]
 		console.log("ignoring",evt.type,evt.which);
 		return;
 	}

@@ -245,6 +245,10 @@ function vec3_neg(v) {
 	return [-v[0],-v[1],-v[2]];
 }
 
+function vec3_add(a,b) {
+	return [a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+}
+
 function quat_vec3_multiply(q,v) {
 	var	vn = vec3_normalise(v),
 		vq = [vn[0],vn[1],v[2],0],
