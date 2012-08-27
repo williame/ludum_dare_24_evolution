@@ -167,7 +167,7 @@ function start() {
 		if(ws.pinger) clearInterval(ws.pinger);
 		removeMessage(std_msg.hello);
 		removeMessage(std_msg.no_players);
-		addMessage(null,null,"disconnected!",std_msg.disconnected);
+		addMessage(null,null,"disconnected!  press F5 to connect!",std_msg.disconnected);
 		game = null;
 	};
 	ws.error = function(e) {
