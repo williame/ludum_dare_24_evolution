@@ -244,8 +244,8 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.lastMessage = time.time()
         self.keys = set()
         self.pos = euclid.Vector3(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5))
-        self.rot = euclid.Quaternion() #.rotate_euler(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5)).normalized()
-        self.speed = 0
+        self.rot = euclid.Quaternion().rotate_euler(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5)).normalized()
+        self.speed = random.random() * max_speed
         self.roll_speed = self.pitch_speed = self.yaw_speed = 0
         self.firing = 0
         self.killed_by = None
