@@ -10,7 +10,7 @@ define("branch",default="master")
 define("access",type=str,multiple=True)
 define("local",type=bool)
 
-num_models = 6
+num_models = 8
 
 ticks_per_sec = 8
 base_speed = .0015

@@ -239,7 +239,7 @@ function inited() {
 		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
 		gl.bindTexture(gl.TEXTURE_2D,null);
 	});
-	for(var i=0; i<6; i++)
+	for(var i=0; i<8; i++)
 		player_models.push(new G3D("fighter"+(i+1)+".g3d"));
 	particle_program = createProgram(
 		"precision mediump float;\n"+
