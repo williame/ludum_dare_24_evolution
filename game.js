@@ -223,6 +223,7 @@ function inited() {
 			pitch:0,
 			yaw:0,
 		},
+		num_players:0,
 		players:[],
 	};
 	shots = gl.createBuffer();
