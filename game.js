@@ -482,12 +482,12 @@ function onKeyDown(evt,keys) {
 		if(keys[40]) {
 			key = 40; down = !down; feedback = -feedback;
 		}
-		game.attitude.roll = down? -feedback: 0;
+		game.attitude.roll = down? feedback: 0;
 	} else if(key==40) { // down
 		if(keys[38]) {
 			key = 38; down = !down; feedback = -feedback;
 		}
-		game.attitude.roll = down? feedback: 0;
+		game.attitude.roll = down? -feedback: 0;
 	} else if(key==65) { // A
 		if(keys[68]) {
 			key = 68; down = !down; feedback = -feedback;

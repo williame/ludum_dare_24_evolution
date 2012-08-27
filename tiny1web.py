@@ -155,8 +155,8 @@ class Game:
                     client.roll_speed *= .9
                 if math.fabs(client.roll_speed) < epslion: client.roll_speed = 0
                 # pitch
-                if 38 in client.keys: client.pitch_speed += pitch_speed
-                if 40 in client.keys: client.pitch_speed -= pitch_speed
+                if 38 in client.keys: client.pitch_speed -= pitch_speed
+                if 40 in client.keys: client.pitch_speed += pitch_speed
                 client.pitch_speed = max(-max_pitch_speed,min(max_pitch_speed,client.pitch_speed))
                 if 38 not in client.keys and 40 not in client.keys:
                     client.pitch_speed *= .9
