@@ -7,7 +7,7 @@ body { border:0px;margin:0px;padding:0px; background-color: black; color: white;
 </style>
 <script type="text/javascript">
 
-var gl, canvas, splash;
+var gl, canvas, splash, audio;
 
 function init() {
 	canvas = document.getElementById("game-canvas");
@@ -27,6 +27,9 @@ function init() {
 		gl.viewport(0,0,canvas.offsetWidth,canvas.offsetHeight);
 	};
 	window.onresize();
+	var audioFactory = window.webkitAudioContext || window.mozAudioContext;
+	if(audioFactory)
+		audio = new audioFactory();
 	var 	keys = [],
 		onMouseDown = function(evt) {
 			evt.cancelBubble = true;
@@ -169,8 +172,25 @@ function loadFile(type,path,callback) {
 				done(doc.response);
 		};
 		doc.send();
+	} else if(type == "audio") {
+		var doc = new XMLHttpRequest();
+		doc.open("GET",path,true);
+		doc.responseType = "arraybuffer";
+		doc.overrideMimeType('text/plain; charset=x-user-defined');
+		doc.onreadystatechange = function() {
+			if (doc.readyState==4 && (!doc.status || doc.status==200))
+				audio.decodeAudioData(doc.response,done);
+		};
+		doc.send();
 	} else
 		console.log("unsupported type",type,path);
+}
+
+function playAudio(clip) {
+	var source = audio.createBufferSource();
+	source.buffer = clip;
+	source.connect(audio.destination);
+	source.noteOn(0);
 }
 
 window.requestAnimFrame = 

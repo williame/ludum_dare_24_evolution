@@ -15,6 +15,10 @@ var player_models = [];
 
 var particle, particle_program;
 
+var sounds = {
+	shot: [],
+};
+
 var shots, shots_len = 0;
 
 function gameHandler(evt) {
@@ -252,6 +256,11 @@ function inited() {
 	particle_program.pMatrix = gl.getUniformLocation(particle_program,"pMatrix");
 	particle_program.texture = gl.getUniformLocation(particle_program,"texture");
 	particle_program.colour = gl.getUniformLocation(particle_program,"colour");
+	if(audio) {
+		loadFile("audio","voice_intro-darwin-quote.ogg",playAudio);
+		loadFile("audio","sound_fire.ogg",function(sound) { sounds.fire = sound; });
+	} else
+		addMessage(10,null,"sorry, your browser doesn't support the experimental Web Audio API, so there's no sounds");
 }
 
 function render() {
@@ -463,7 +472,10 @@ function onKeyDown(evt,keys) {
 			key = 65; down = !down; feedback = -feedback;
 		}
 		game.attitude.yaw = down? feedback: 0;
-	} else if(key!=83 && key!=87 && key!=32) { // W, S, [space]
+	} else if(key==32) {
+		if(down && sounds.fire)
+			playAudio(sounds.fire);
+	} else if(key!=83 && key!=87) { // W, S, [space]
 		console.log("ignoring",evt.type,evt.which);
 		return;
 	}

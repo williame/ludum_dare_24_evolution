@@ -191,7 +191,11 @@ class Game:
                 if client.pos.z >  extreme: client.pos.z =  extreme
                 # shooting
                 if 32 in client.keys:
-                    self.shots.append(Shot(client))
+                    client.firing += 1
+                    if client.firing < 5:
+                        self.shots.append(Shot(client))
+                else:
+                    client.firing = 0
                 #print client.name, client.keys, client.roll_speed, client.pitch_speed, client.speed, client.rot, client.pos, move
             for shot in self.shots[:]:
                 hit,distance = shot.tick(self.clients)
@@ -241,6 +245,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.rot = euclid.Quaternion() #.rotate_euler(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5)).normalized()
         self.speed = 0
         self.roll_speed = self.pitch_speed = self.yaw_speed = 0
+        self.firing = 0
         self.game.add_client(self)
         print self.name,"joined;",len(self.game.clients),"players"
     def on_message(self,message):
