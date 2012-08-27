@@ -120,7 +120,7 @@ function gameHandler(evt) {
 		}
 	} else
 		console.log("ERROR unhandled message",data);
-	if(old_num_players != game.num_players) {
+	if(game && old_num_players != game.num_players) {
 		if(game.num_players == 1) {
 			addMessage(null,null,"Hello "+game.player,std_msg.hello);
 			addMessage(null,null,"There are no other players!  Get a friend to play online NOW!",std_msg.no_players);
