@@ -204,7 +204,7 @@ window.requestAnimFrame =
 	};
 	
 // fun stats
-if(ws_path.indexOf("localhost") != -1) { // not running locally
+if(ws_path.indexOf("localhost") == -1) { // not running locally
 	var _gaq = _gaq || [];
 	_gaq.push(['_setAccount', 'UA-27302158-1']);
 	_gaq.push(['_trackPageview']);
