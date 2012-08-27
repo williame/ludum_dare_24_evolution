@@ -56,7 +56,7 @@ class Shot:
         end = self.pos+self.vec
         for client in clients:
             d = line_to_point(client.pos,self.pos,end)
-            print "shoot",self.client.name,client.name,d
+            #if d < distance: print "shoot",self.client.name,client.name,d
             if d < distance and d <= player_size:
                 nearest, distance = client, d
         self.pos = end
