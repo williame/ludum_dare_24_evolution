@@ -51,10 +51,6 @@ function gameHandler(evt) {
 		shots_len = shots_data.length;
 	}
 	else if(data.pong) {
-		if(ws.ping_value != data.pong)
-			ws.error("bad ping; expected "+ws.ping_value+", got "+data.pong);
-		else
-			ws.ping_value = 0;
 	} else if(data.chat) {
 		for(var chat in data.chat)
 			for(var player in data.chat[chat])
@@ -203,15 +199,11 @@ function start() {
 			ws.error(e);
 		}
 	};
-	ws.ping_value = 0;
 	ws.ping = function() {
-		if(ws.last_message < now()-2000) {
+		if(ws.last_message < now()-2000)
 			ws.error("ping failed");
-			return;
-		} else if(ws.ping_value == 0) {
-			ws.ping_value = Math.floor(Math.random()*100000+1);
-			ws.send(JSON.stringify({"ping":ws.ping_value}));
-		}
+		else
+			ws.send(JSON.stringify({"ping":0}));
 	};
 }
 
