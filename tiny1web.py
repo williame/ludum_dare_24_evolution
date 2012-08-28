@@ -241,6 +241,7 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
             print "kicking out bad origin"
             self.write_message('{"chat":[{"Will":"if you fork the code, you need to run your own server!"}]}');
             self.close()
+        self.write_message('{"chat":[{"PLEASE":"if your game is laggy, forgive us and judge kindly; our server is cheap and a long way away in Sweden!"}]}');
         self.lastMessage = time.time()
         self.keys = set()
         self.pos = euclid.Vector3(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5))
