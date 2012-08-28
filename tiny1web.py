@@ -12,7 +12,7 @@ define("local",type=bool)
 
 num_models = 8
 
-ticks_per_sec = 8
+ticks_per_sec = 10
 base_speed = .0015
 base_max = .05
 roll_speed = base_speed
@@ -65,6 +65,7 @@ class Shot:
 
 class Game:
     def __init__(self):
+        self.seq = 1
         self.clients = set()
         self.tick_length = 1./ticks_per_sec
         self.ticker = tornado.ioloop.PeriodicCallback(self.run,1000/(ticks_per_sec*2))
@@ -72,7 +73,7 @@ class Game:
         return time.time()-self.start_time
     def add_client(self,client):
         if not self.clients:
-            self.seq = 1
+            #self.seq = 1
             self.start_time = time.time()
             self.tick = 0
             self.shots = []
