@@ -207,9 +207,10 @@ function start() {
 		if(ws.last_message < now()-2000) {
 			ws.error("ping failed");
 			return;
+		} else if(ws.ping_value == 0) {
+			ws.ping_value = Math.floor(Math.random()*100000+1);
+			ws.send(JSON.stringify({"ping":ws.ping_value}));
 		}
-		ws.ping_value = Math.floor(Math.random()*100000+1);
-		ws.send(JSON.stringify({"ping":ws.ping_value}));
 	};
 }
 
