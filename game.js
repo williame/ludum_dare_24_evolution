@@ -58,7 +58,7 @@ function gameHandler(evt) {
 	} else if(data.chat) {
 		for(var chat in data.chat)
 			for(var player in data.chat[chat])
-				addMessage(6,player,data.chat[chat][player]);
+				addMessage(10,player,data.chat[chat][player]);
 	} else if(data.welcome) {
 		game.welcomed = true;
 		game.player = data.welcome.name;
@@ -187,6 +187,7 @@ function start() {
 		game = null;
 	};
 	ws.error = function(e) {
+		if(e && e.message) e = e.message;
 		console.log("websocket",ws_path,"encountered an error:",e);
 		addMessage(6,null,"encountered a network problem: "+e);
 		game = null;
@@ -203,7 +204,7 @@ function start() {
 	};
 	ws.ping_value = 0;
 	ws.ping = function() {
-		if(ws.ping_value) {
+		if(ws.last_message < now()-2000) {
 			ws.error("ping failed");
 			return;
 		}
