@@ -100,11 +100,14 @@ function gameHandler(evt) {
 	} else if(data.leaving) {
 		if(data.leaving in game.players) {
 			if(data.leaving == game.player) {
-				addMessage(null,null,""+game.player+", you died!",std_msg.died);
-				randomSound(sounds.losing);
+				if(data.killed_by) {
+					addMessage(null,null,""+game.player+", you died, killed by "+data.killed_by+"!",std_msg.died);
+					randomSound(sounds.losing);
+					if(died_splash)
+						died_splash.show();
+				} else
+					addMessage(null,null,""+game.player+" disconnected, "+data.reason,std_msg.died);
 				ws.close();
-				if(died_splash)
-					died_splash.show();
 				return;
 			} else {
 				game.num_players--;

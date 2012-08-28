@@ -284,9 +284,9 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         if self.closed: return
         try:
             tornado.websocket.WebSocketHandler.write_message(self,msg)
-        except:
-            print "ERROR sending join to",self.name
-            traceback.print_exc()
+        except Exception as e:
+            print "ERROR sending join to",self.name,e
+            self.closed = True
             self.close()
     def on_close(self):
         if self.closed: return
