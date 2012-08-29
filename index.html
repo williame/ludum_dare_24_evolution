@@ -28,7 +28,7 @@ function init() {
 	};
 	window.onresize();
 	var audioFactory = window.webkitAudioContext || window.mozAudioContext;
-	if(audioFactory)
+	if(false) //audioFactory)
 		audio = new audioFactory();
 	var 	keys = [],
 		onMouseDown = function(evt) {

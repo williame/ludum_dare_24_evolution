@@ -32,6 +32,8 @@ function gameHandler(evt) {
 	ws.last_message = now();
 	var old_num_players = game.num_players;
 	if(data.updates) {
+		game.tick = data.tick*game.tick_length;
+		console.log(game.tick,game.tick-game.start_time);
 		for(var update in data.updates) {
 			update = data.updates[update];
 			var player = game.players[update.name];
@@ -74,6 +76,12 @@ function gameHandler(evt) {
 				rot:player.rot,
 				speed:player.speed,
 				model:player_models[player.model],
+				last:{
+					pos:player.pos,
+					rot:player_rot,
+					speed:player.speed,
+					at:game.tick,
+				},
 			};
 			for(var key in player.keys)
 				game.players[player.name].keys[key] = true;
@@ -94,6 +102,12 @@ function gameHandler(evt) {
 				rot:data.joining.rot,
 				speed:data.joining.speed,
 				model:player_models[data.joining.model],
+				last:{
+					pos:player.pos,
+					rot:player_rot,
+					speed:player.speed,
+					at:game.tick,
+				},
 			};
 			addMessage(6,null,data.joining.name+" joins the game");
 		}
@@ -163,6 +177,19 @@ function removeMessage(tag) {
 	return message != null;
 }
 
+function newGame() {
+	game = {
+		welcomed:false,
+		attitude:{ // this is for user feedback, not actually used to compute heading
+			roll:0,
+			pitch:0,
+			yaw:0,
+		},
+		num_players:0,
+		players:[],
+	};
+}
+
 function start() {
 	removeMessage(std_msg.loading);
 	addMessage(null,null,"connecting...",std_msg.connecting);
@@ -184,13 +211,13 @@ function start() {
 		removeMessage(std_msg.no_players);
 		addMessage(null,null,"disconnected!  press F5 or wait to connect!",std_msg.disconnected);
 		game = null;
-		setTimeout(window.location.reload,3000);
+		setTimeout(start,3000); // location.reload doesn't work on Chrome/Safari
 	};
 	ws.error = function(e) {
 		if(e && e.message) e = e.message;
 		console.log("websocket",ws_path,"encountered an error:",e);
 		addMessage(6,null,"encountered a network problem: "+e);
-		game = null;
+		newGame();
 		ws.close();
 	};
 	ws.onerror = ws.error;
@@ -211,19 +238,10 @@ function start() {
 }
 
 function inited() {
+	newGame();
 	messages = UIWindow(false,UIPanel([],false,UILayoutRows));
 	addMessage(null,null,"loading... please wait",std_msg.loading);
 	messages.show();
-	game = {
-		welcomed:false,
-		attitude:{ // this is for user feedback, not actually used to compute heading
-			roll:0,
-			pitch:0,
-			yaw:0,
-		},
-		num_players:0,
-		players:[],
-	};
 	shots = gl.createBuffer();
 	loadFile("image","grid.png",function(handle) {
 		grid_tex = handle;
@@ -302,8 +320,9 @@ function render() {
 		camMatrix = mat4_identity(),
 		us = null;
 	if(game.welcomed) {
-		var us = game.players[game.player],
-			thirdPerson = [0,-.02,-.04];
+		var thirdPerson = [0,-.02,-.04], t = 0;
+		us = game.players[game.player];
+		game.last = game.players[pos];
 		camMatrix = mat4_multiply(mat4_translation(vec3_neg(us.pos)),camMatrix);
 		camMatrix = mat4_multiply(quat_to_mat4(us.rot),camMatrix);
 		camMatrix = mat4_multiply(mat4_translation(thirdPerson),camMatrix);
