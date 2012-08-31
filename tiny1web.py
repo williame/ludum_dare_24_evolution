@@ -10,25 +10,37 @@ define("branch",default="master")
 define("access",type=str,multiple=True)
 define("local",type=bool)
 
-num_models = 8
+define("welcome",type=str)
+define("fps",default=8,type=int)
+define("origin",default="http://williame.github.com",type=str)
 
-ticks_per_sec = 10
-base_speed = .0015
-base_max = .05
-roll_speed = base_speed
-max_roll_speed = base_max
-pitch_speed = base_speed
-max_pitch_speed = base_max
-yaw_speed = base_speed
-max_yaw_speed = base_max
-speed = base_speed/2
-max_speed = base_max/2
-shot_length = .03
-max_shot_age = 5
+num_models = 8
 player_size = 0.025
 epslion = 0.0001
-
 forward = euclid.Quaternion(0.,0.,0.,-1.)
+
+def set_fps(fps):
+    global ticks_per_sec
+    global roll_speed, max_roll_speed
+    global pitch_speed, max_pitch_speed
+    global yaw_speed, max_yaw_speed
+    global speed, max_speed
+    global shot_length, max_shot_age
+    ticks_per_sec = fps
+    base_speed = (.0015*8)/ticks_per_sec
+    base_max = (.05*8)/ticks_per_sec
+    roll_speed = base_speed
+    max_roll_speed = base_max
+    pitch_speed = base_speed
+    max_pitch_speed = base_max
+    yaw_speed = base_speed
+    max_yaw_speed = base_max
+    speed = base_speed/2
+    max_speed = base_max/2
+    shot_length = (.03*8)/ticks_per_sec
+    max_shot_age = (ticks_per_sec/2)+1
+    print "speed",speed*ticks_per_sec
+    print "shot range",shot_length*ticks_per_sec
 
 def point_distance(a,b):
     return math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2 + (a.y-b.y)**2)
@@ -67,16 +79,16 @@ class Game:
     def __init__(self):
         self.seq = 1
         self.clients = set()
-        self.tick_length = 1./ticks_per_sec
-        self.ticker = tornado.ioloop.PeriodicCallback(self.run,1000/(ticks_per_sec*2))
     def now(self):
         return time.time()-self.start_time
     def add_client(self,client):
         if not self.clients:
             #self.seq = 1
+            self.tick_length = 1./ticks_per_sec
             self.start_time = time.time()
             self.tick = 0
             self.shots = []
+            self.ticker = tornado.ioloop.PeriodicCallback(self.run,1000/(ticks_per_sec*2))
             self.ticker.start()
         client.name = "player%d"%self.seq
         client.time = self.tick
@@ -236,13 +248,16 @@ class LD24WebSocket(tornado.websocket.WebSocketHandler):
         self.origin = self.request.headers.get("origin","")
         self.userAgent = self.request.headers.get("user-agent")
         print "connection",self.request.remote_ip, self.origin, self.userAgent
-        if self.origin != "http://williame.github.com" and not \
+        if self.origin != options.origin and not \
             self.origin.startswith("http://31.192.226.244:") and not \
             self.origin.startswith("http://localhost:"):
             print "kicking out bad origin"
-            self.write_message('{"chat":[{"Will":"if you fork the code, you need to run your own server!"}]}');
+            self.write_message('{"chat":[{"Will":"if you fork the code, you need to run your own server!"}]}')
             self.close()
-        self.write_message('{"chat":[{"PLEASE":"if your game is laggy, forgive us and judge kindly; our server is cheap and a long way away in Sweden!"}]}');
+        chat = [dict([["%d fps"%options.fps,"(lock step frame-rate with all players)"]])]
+        if options.welcome:
+            chat.append({"welcome":options.welcome})
+        self.write_message(json.dumps({"chat":chat}))
         self.lastMessage = time.time()
         self.keys = set()
         self.pos = euclid.Vector3(random.uniform(-.5,.5),random.uniform(-.5,.5),random.uniform(-.5,.5))
@@ -339,6 +354,7 @@ application = tornado.web.Application([
 
 if __name__ == "__main__":
     parse_command_line()
+    set_fps(options.fps)
     application.listen(options.port)
     try:
         io_loop = tornado.ioloop.IOLoop.instance()

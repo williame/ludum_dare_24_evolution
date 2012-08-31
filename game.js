@@ -30,10 +30,9 @@ var shots, shots_len = 0;
 function gameHandler(evt) {
 	var data = JSON.parse(evt.data);
 	ws.last_message = now();
-	var old_num_players = game.num_players;
+	var old_num_players = game? game.num_players: -1;
 	if(data.updates) {
 		game.tick = data.tick*game.tick_length;
-		console.log(game.tick,game.tick-game.start_time);
 		for(var update in data.updates) {
 			update = data.updates[update];
 			var player = game.players[update.name];
@@ -76,12 +75,6 @@ function gameHandler(evt) {
 				rot:player.rot,
 				speed:player.speed,
 				model:player_models[player.model],
-				last:{
-					pos:player.pos,
-					rot:player_rot,
-					speed:player.speed,
-					at:game.tick,
-				},
 			};
 			for(var key in player.keys)
 				game.players[player.name].keys[key] = true;
@@ -102,12 +95,6 @@ function gameHandler(evt) {
 				rot:data.joining.rot,
 				speed:data.joining.speed,
 				model:player_models[data.joining.model],
-				last:{
-					pos:player.pos,
-					rot:player_rot,
-					speed:player.speed,
-					at:game.tick,
-				},
 			};
 			addMessage(6,null,data.joining.name+" joins the game");
 		}
@@ -152,7 +139,7 @@ function addMessage(secs,from,text,tag) {
 		message = UIPanel(f?[f,UILabel(text)]:[UILabel(text)],true);
 	message.bgColour = [0.2,0.2,0.2,1];
 	message.tag = tag;
-	if(f) f.fgColour = from==game.player?[0.8,0.8,1,1]: [0.8,1,0.8,1];
+	if(f) f.fgColour = (game && from==game.player)?[0.8,0.8,1,1]: [0.8,1,0.8,1];
 	var old = tag? getMessage(tag): null;
 	if(old) {
 		old.parent.replaceChild(old,message);
@@ -190,19 +177,32 @@ function newGame() {
 	};
 }
 
+function getParameterByName(name) {
+	name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+	var	regexS = "[\\?&]" + name + "=([^&#]*)",
+		regex = new RegExp(regexS),
+		results = regex.exec(window.location.search);
+	if(results == null) return "";
+	return decodeURIComponent(results[1].replace(/\+/g, " "));
+}
+
 function start() {
 	removeMessage(std_msg.loading);
+	removeMessage(std_msg.disconnected);
 	addMessage(null,null,"connecting...",std_msg.connecting);
-	var ws_path = window.location.href;
-	if(ws_path.indexOf("localhost") != -1) // if running locally, connect locally
-		ws_path = ws_path.split("/")[2];
-	else
-		ws_path = "31.192.226.244:4874"; // my private server; if you fork, you have to change this
+	var ws_path = getParameterByName("server");
+	if(!ws_path) {
+		if(ws_path.indexOf("localhost") != -1) // if running locally, connect locally
+			ws_path = ws_path.split("/")[2];
+		else
+			ws_path = "31.192.226.244:4874"; // my private server; if you fork, you have to change this
+	}
 	ws_path = "ws://"+ws_path+"/ws-ld24";
 	ws = new WebSocket(ws_path);
 	ws.onopen = function() {
 		console.log("websocket",ws_path,"open");
 		ws.pinger = setInterval(ws.ping,1000);
+		removeMessage(std_msg.died);
 	};
 	ws.onclose = function() {
 		console.log("websocket",ws_path,"closed");
@@ -210,14 +210,13 @@ function start() {
 		removeMessage(std_msg.hello);
 		removeMessage(std_msg.no_players);
 		addMessage(null,null,"disconnected!  press F5 or wait to connect!",std_msg.disconnected);
-		game = null;
+		newGame();
 		setTimeout(start,3000); // location.reload doesn't work on Chrome/Safari
 	};
 	ws.error = function(e) {
 		if(e && e.message) e = e.message;
 		console.log("websocket",ws_path,"encountered an error:",e);
 		addMessage(6,null,"encountered a network problem: "+e);
-		newGame();
 		ws.close();
 	};
 	ws.onerror = ws.error;
@@ -322,7 +321,6 @@ function render() {
 	if(game.welcomed) {
 		var thirdPerson = [0,-.02,-.04], t = 0;
 		us = game.players[game.player];
-		game.last = game.players[pos];
 		camMatrix = mat4_multiply(mat4_translation(vec3_neg(us.pos)),camMatrix);
 		camMatrix = mat4_multiply(quat_to_mat4(us.rot),camMatrix);
 		camMatrix = mat4_multiply(mat4_translation(thirdPerson),camMatrix);

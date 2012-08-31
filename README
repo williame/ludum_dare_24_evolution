@@ -1,0 +1,20 @@
+HOW TO SET UP YOUR OWN LAN SERVER
+
+0. Get all your buddies ready for battle!  This is a multi-player game so
+   you need to have your friends to play against :D
+
+1. download Cage Flight
+   (https://github.com/williame/ludum_dare_24_evolution/zipball/gh-pages)
+   
+2. you need to have Python and Tornado installed
+   http://www.tornadoweb.org/
+   
+3. you need to know your IP address
+
+3. run this command:
+   python tiny1web.py --local --fps=30 "--welcome=be gentle" --origin=???:8888
+   (where ??? is your IP address)
+   
+4. everyone sends their browsers (Chrome, Firefox) to:
+   http://???:8888?server=???:8888
+   (where ??? is your IP address)
