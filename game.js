@@ -203,6 +203,8 @@ function start() {
 		console.log("websocket",ws_path,"open");
 		ws.pinger = setInterval(ws.ping,1000);
 		removeMessage(std_msg.died);
+		if(died_splash)
+			died_splash.hide();
 	};
 	ws.onclose = function() {
 		console.log("websocket",ws_path,"closed");
